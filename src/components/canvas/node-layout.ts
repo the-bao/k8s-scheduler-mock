@@ -1,5 +1,3 @@
-import type { K8sNodeData } from '../../types/simulation'
-
 export const builtinPositions: Record<string, { x: number; y: number }> = {
   'user':               { x: 50, y: 300 },
   'api-server':         { x: 250, y: 300 },

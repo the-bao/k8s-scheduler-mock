@@ -1,7 +1,6 @@
 // src/engine/simulation.ts
 
 import type {
-  Phase,
   SimMessage,
   SimNode,
   ResourceStore,
@@ -65,10 +64,9 @@ export function generateMessages(
   let offset = 0
   const t = () => ts + offset++
 
-  const podName =
-    (podSpec.metadata as Record<string, unknown>)?.name ?? 'unknown-pod'
-  const namespace =
-    (podSpec.metadata as Record<string, unknown>)?.namespace ?? 'default'
+  const meta = podSpec.metadata as Record<string, unknown> | undefined
+  const podName = String(meta?.name ?? 'unknown-pod')
+  const namespace = String(meta?.namespace ?? 'default')
 
   const messages: SimMessage[] = []
 
@@ -388,7 +386,7 @@ function buildOperatorMessage(
       patch: action.patch,
     },
     response: action.error ? undefined : { applied: true },
-    error: action.error,
+    error: action.error ? { ...action.error, retryable: false } : undefined,
     latency: 15,
     timestamp: t(),
   }
