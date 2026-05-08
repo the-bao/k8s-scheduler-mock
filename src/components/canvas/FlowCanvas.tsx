@@ -17,31 +17,34 @@ const nodeTypes = { k8s: K8sNode }
 export function FlowCanvas() {
   const { nodes: simNodes, messages, currentIndex } = useSimulationStore()
 
-  const activeFrom = currentIndex >= 0 ? messages[currentIndex]?.from : null
-  const activeTo = currentIndex >= 0 ? messages[currentIndex]?.to : null
+  const currentMsg = currentIndex >= 0 ? messages[currentIndex] : null
+  const activeFrom = currentMsg?.from ?? null
+  const activeTo = currentMsg?.to ?? null
+  const hasError = !!currentMsg?.error
 
   const flowNodes: Node[] = useMemo(() => {
     return simNodes.map((sn) => {
       const pos = builtinPositions[sn.id] ?? { x: 600, y: 400 }
+      const isActive = sn.id === activeFrom || sn.id === activeTo
       return {
         id: sn.id,
         type: 'k8s',
         position: pos,
         data: {
           simNode: sn,
-          isActive: sn.id === activeFrom || sn.id === activeTo,
+          isActive,
+          activeError: isActive && hasError,
         },
       }
     })
-  }, [simNodes, activeFrom, activeTo])
+  }, [simNodes, activeFrom, activeTo, hasError])
 
   const flowEdges: Edge[] = useMemo(() => {
     return builtinEdges.map((e) => {
       const isActive =
-        currentIndex >= 0 &&
-        messages[currentIndex] &&
-        ((messages[currentIndex].from === e.source && messages[currentIndex].to === e.target) ||
-         (messages[currentIndex].from === e.target && messages[currentIndex].to === e.source))
+        !!currentMsg &&
+        ((currentMsg.from === e.source && currentMsg.to === e.target) ||
+         (currentMsg.from === e.target && currentMsg.to === e.source))
 
       return {
         ...e,
@@ -53,7 +56,7 @@ export function FlowCanvas() {
         labelStyle: { fill: '#aaa', fontSize: 10 },
       }
     })
-  }, [currentIndex, messages])
+  }, [currentMsg])
 
   return (
     <div className="w-full h-full">

@@ -65,7 +65,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     }))
 
     set({
-      status: 'paused',
+      status: 'running',
       messages,
       currentIndex: -1,
       nodes: [...getDefaultNodes(), ...pluginNodes],

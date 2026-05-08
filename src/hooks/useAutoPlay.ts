@@ -1,9 +1,18 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useSimulationStore } from '../store/simulation-store'
 
 export function useAutoPlay() {
-  const { status, speed, stepForward } = useSimulationStore()
+  const status = useSimulationStore((s) => s.status)
+  const speed = useSimulationStore((s) => s.speed)
+  const stepForward = useSimulationStore((s) => s.stepForward)
   const intervalRef = useRef<number | null>(null)
+  const stepRef = useRef(stepForward)
+
+  stepRef.current = stepForward
+
+  const tick = useCallback(() => {
+    stepRef.current()
+  }, [])
 
   useEffect(() => {
     if (intervalRef.current) {
@@ -13,9 +22,7 @@ export function useAutoPlay() {
 
     if (status === 'running') {
       const delay = 800 / speed
-      intervalRef.current = window.setInterval(() => {
-        stepForward()
-      }, delay)
+      intervalRef.current = window.setInterval(tick, delay)
     }
 
     return () => {
@@ -23,5 +30,5 @@ export function useAutoPlay() {
         clearInterval(intervalRef.current)
       }
     }
-  }, [status, speed, stepForward])
+  }, [status, speed, tick])
 }

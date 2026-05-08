@@ -17,25 +17,27 @@ interface K8sNodeProps {
 }
 
 export function K8sNode({ data }: K8sNodeProps) {
-  const { simNode, isActive } = data
+  const { simNode, isActive, activeError } = data
   const color = simNode.type === 'plugin'
     ? '#E91E63'
     : componentColors[simNode.component] || '#666'
+
+  const displayState = activeError ? 'error' : isActive ? 'processing' : 'idle'
 
   return (
     <div
       className={`px-4 py-2 rounded-lg border-2 text-white text-sm font-medium min-w-[120px] text-center transition-all duration-300 ${
         isActive ? 'scale-110 shadow-lg shadow-white/20' : ''
-      } ${simNode.state === 'error' ? 'animate-pulse' : ''}`}
+      } ${activeError ? 'animate-pulse' : ''}`}
       style={{
-        borderColor: isActive ? '#fff' : color,
-        backgroundColor: color,
+        borderColor: isActive ? (activeError ? '#ef4444' : '#fff') : color,
+        backgroundColor: activeError ? '#7f1d1d' : color,
         borderStyle: simNode.type === 'plugin' ? 'dashed' : 'solid',
       }}
     >
       <Handle type="target" position={Position.Left} className="!bg-white !w-2 !h-2" />
       <div className="font-bold">{simNode.label}</div>
-      <div className="text-xs opacity-70">{simNode.state}</div>
+      <div className="text-xs opacity-70">{displayState}</div>
       <Handle type="source" position={Position.Right} className="!bg-white !w-2 !h-2" />
     </div>
   )

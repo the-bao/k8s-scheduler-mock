@@ -157,4 +157,5 @@ export interface Scenario {
 export interface K8sNodeData {
   simNode: SimNode
   isActive: boolean
+  activeError?: boolean
 }
