@@ -2,16 +2,38 @@ import { useState } from 'react'
 import { useSimulationStore } from '../../store/simulation-store'
 import { scenarios } from '../../data/scenarios'
 
+const resourceTypeLabels: Record<string, string> = {
+  Pod: 'Pod Scenarios',
+  Deployment: 'Deployment Scenarios',
+  DaemonSet: 'DaemonSet Scenarios',
+  Job: 'Job Scenarios',
+}
+
 export function Toolbar() {
-  const { startSimulation, status, reset } = useSimulationStore()
+  const { startSimulation, status, reset, loadBuiltinOperators } = useSimulationStore()
   const [selectedScenario, setSelectedScenario] = useState('normal')
 
   const handleStart = () => {
     const scenario = scenarios.find(s => s.id === selectedScenario)
     if (scenario) {
+      if (scenario.operators && scenario.operators.length > 0) {
+        loadBuiltinOperators()
+      }
       startSimulation(scenario.podYaml, scenario)
     }
   }
+
+  const selectedScenarioData = scenarios.find(s => s.id === selectedScenario)
+  const buttonText = selectedScenarioData?.resourceType
+    ? `Create ${selectedScenarioData.resourceType}`
+    : 'Create Pod'
+
+  const grouped = scenarios.reduce<Record<string, typeof scenarios>>((acc, s) => {
+    const type = s.resourceType ?? 'Pod'
+    if (!acc[type]) acc[type] = []
+    acc[type].push(s)
+    return acc
+  }, {})
 
   return (
     <div className="flex items-center gap-4">
@@ -22,8 +44,12 @@ export function Toolbar() {
           onChange={(e) => setSelectedScenario(e.target.value)}
           className="bg-gray-800 text-white text-xs px-2 py-1 rounded border border-gray-600"
         >
-          {scenarios.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
+          {Object.entries(grouped).map(([type, group]) => (
+            <optgroup key={type} label={resourceTypeLabels[type] ?? type}>
+              {group.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </optgroup>
           ))}
         </select>
       </div>
@@ -33,7 +59,7 @@ export function Toolbar() {
         disabled={status === 'running'}
         className="px-3 py-1 bg-green-600 hover:bg-green-500 disabled:bg-gray-600 text-white rounded text-xs font-medium"
       >
-        Create Pod
+        {buttonText}
       </button>
 
       <button
