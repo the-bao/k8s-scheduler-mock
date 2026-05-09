@@ -182,6 +182,33 @@ Processing:
 4. Newly created resources may trigger downstream Operators (chain reconcile)
 5. Chain depth capped at 3 levels to prevent infinite loops
 
+### Controller Interface
+
+All built-in and user-defined Operators implement a unified interface:
+
+```typescript
+export interface Controller {
+  name: string
+  config: OperatorConfig
+  reconcile(event: ReconcileEvent): ReconcileResult[]
+}
+
+export interface ReconcileEvent {
+  eventType: 'Added' | 'Modified' | 'Deleted'
+  resource: Record<string, unknown>
+  existingResources: CustomResource[]
+}
+
+export interface ReconcileResult {
+  messages: SimMessage[]
+  resourceChanges: { created?: CustomResource; updated?: CustomResource; deleted?: string }
+}
+```
+
+### Template Variable Resolution
+
+`{{variable}}` references in action templates resolve from the triggering resource's field path. For example, `{{deployment.spec.replicas}}` extracts `spec.replicas` from the resource that triggered the reconcile. Nested paths use dot notation.
+
 ### Built-in Controllers (Batch 1: Workload)
 
 | Controller | Watch | Reconcile Behavior |
