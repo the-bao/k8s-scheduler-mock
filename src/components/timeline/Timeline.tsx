@@ -79,7 +79,7 @@ export function Timeline() {
 
       {/* Phase labels */}
       <div className="flex text-xs text-gray-500 mt-1">
-        {(['submit', 'controller', 'scheduling', 'kubelet', 'completed'] as Phase[]).map((phase) => (
+        {(['submit', 'controller', 'operator', 'scheduling', 'kubelet', 'completed'] as Phase[]).map((phase) => (
           <span key={phase} className="flex items-center gap-1 mr-3">
             <span className="w-2 h-2 rounded-full" style={{ backgroundColor: phaseColors[phase] }} />
             {phase}

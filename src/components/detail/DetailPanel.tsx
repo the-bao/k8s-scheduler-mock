@@ -115,6 +115,22 @@ export function DetailPanel() {
                 </div>
               ))}
             </div>
+            <div>
+              <div className="text-xs text-gray-500 mb-2">Custom Resources</div>
+              {Object.keys(resources.customResources).length === 0 ? (
+                <div className="text-gray-600 text-xs">No custom resources</div>
+              ) : (
+                Object.entries(resources.customResources).flatMap(([gvk, resourcesByName]) =>
+                  Object.entries(resourcesByName).map(([name, cr]) => (
+                    <div key={`${gvk}-${name}`} className="text-xs mb-1">
+                      <span className="text-white">{name}</span>{' '}
+                      <span className="text-cyan-400">{cr.kind}</span>
+                      {cr.status?.phase ? <span className="text-yellow-400 ml-1">{String(cr.status.phase)}</span> : null}
+                    </div>
+                  ))
+                )
+              )}
+            </div>
           </div>
         )}
       </div>

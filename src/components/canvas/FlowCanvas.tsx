@@ -10,7 +10,7 @@ import '@xyflow/react/dist/style.css'
 import { useMemo } from 'react'
 import { useSimulationStore } from '../../store/simulation-store'
 import { K8sNode } from './K8sNode'
-import { builtinPositions, builtinEdges } from './node-layout'
+import { builtinPositions, builtinEdges, buildOperatorEdges, getOperatorPosition } from './node-layout'
 
 const nodeTypes = { k8s: K8sNode }
 
@@ -23,8 +23,8 @@ export function FlowCanvas() {
   const hasError = !!currentMsg?.error
 
   const flowNodes: Node[] = useMemo(() => {
-    return simNodes.map((sn) => {
-      const pos = builtinPositions[sn.id] ?? { x: 600, y: 400 }
+    return simNodes.map((sn, i) => {
+      const pos = builtinPositions[sn.id] ?? getOperatorPosition(sn.id, i)
       const isActive = sn.id === activeFrom || sn.id === activeTo
       return {
         id: sn.id,
@@ -40,23 +40,26 @@ export function FlowCanvas() {
   }, [simNodes, activeFrom, activeTo, hasError])
 
   const flowEdges: Edge[] = useMemo(() => {
-    return builtinEdges.map((e) => {
-      const isActive =
-        !!currentMsg &&
+    const operatorNames = simNodes
+      .filter(sn => sn.id.includes('-controller') || sn.id.includes('-operator'))
+      .map(sn => sn.id)
+    const allEdges = [...builtinEdges, ...buildOperatorEdges(operatorNames)]
+
+    return allEdges.map((e) => {
+      const isActive = !!currentMsg &&
         ((currentMsg.from === e.source && currentMsg.to === e.target) ||
          (currentMsg.from === e.target && currentMsg.to === e.source))
-
       return {
         ...e,
         animated: isActive,
         style: {
-          stroke: isActive ? '#3b82f6' : '#555',
+          stroke: isActive ? (currentMsg?.error ? '#ef4444' : '#3b82f6') : '#555',
           strokeWidth: isActive ? 3 : 1,
         },
         labelStyle: { fill: '#aaa', fontSize: 10 },
       }
     })
-  }, [currentMsg])
+  }, [currentMsg, simNodes])
 
   return (
     <div className="w-full h-full">

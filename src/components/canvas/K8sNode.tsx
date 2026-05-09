@@ -10,6 +10,11 @@ const componentColors: Record<string, string> = {
   'cri': '#607D8B',
   'cni': '#FF5722',
   'csi': '#795548',
+  'deployment-controller': '#3b82f6',
+  'replicaset-controller': '#10b981',
+  'daemonset-controller': '#f59e0b',
+  'job-controller': '#8b5cf6',
+  'cronjob-controller': '#ec4899',
 }
 
 interface K8sNodeProps {
