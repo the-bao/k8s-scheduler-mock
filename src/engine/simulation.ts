@@ -412,5 +412,6 @@ export function getDefaultResources(): ResourceStore {
     nodes,
     pvcs: {},
     configmaps: {},
+    customResources: {},
   }
 }

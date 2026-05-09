@@ -4,6 +4,7 @@ import type { Phase } from '../../types/simulation'
 const phaseColors: Record<Phase, string> = {
   submit: '#3b82f6',
   controller: '#f59e0b',
+  operator: '#ec4899',
   scheduling: '#8b5cf6',
   kubelet: '#06b6d4',
   completed: '#22c55e',

@@ -1,6 +1,6 @@
 // src/types/simulation.ts
 
-export type Phase = 'submit' | 'controller' | 'scheduling' | 'kubelet' | 'completed'
+export type Phase = 'submit' | 'controller' | 'operator' | 'scheduling' | 'kubelet' | 'completed'
 
 export type ComponentType =
   | 'api-server'
@@ -49,6 +49,7 @@ export interface ResourceStore {
   nodes: Record<string, NodeResource>
   pvcs: Record<string, PVCResource>
   configmaps: Record<string, Record<string, unknown>>
+  customResources: Record<string, Record<string, CustomResource>>
 }
 
 export interface PodResource {
@@ -142,6 +143,92 @@ export interface PluginConfig {
   ui: PluginUI
 }
 
+// ── Operator Framework types ──────────────────────────────────────────
+
+export interface CRDSpec {
+  group: string
+  version: string
+  kind: string
+  plural: string
+  scope: 'Namespaced' | 'Cluster'
+  versions: CRDVersion[]
+}
+
+export interface CRDVersion {
+  name: string
+  served: boolean
+  storage: boolean
+  schema: Record<string, unknown>
+}
+
+export interface ReconcileRule {
+  watchResource: string
+  labelSelector?: Record<string, string>
+  onEvent: 'Added' | 'Modified' | 'Deleted'
+  condition?: string
+  actions: ReconcileAction[]
+}
+
+export interface ReconcileAction {
+  type: 'createResource' | 'updateResource' | 'deleteResource' | 'updateStatus' | 'sendEvent'
+  target?: {
+    apiVersion: string
+    kind: string
+    name?: string
+    namespace?: string
+  }
+  template?: Record<string, unknown>
+  patch?: Record<string, unknown>
+  error?: { code: number; message: string; retryable: boolean }
+}
+
+export interface OperatorConfig {
+  apiVersion: string
+  kind: 'OperatorConfig'
+  metadata: {
+    name: string
+    managedCRD: CRDSpec
+  }
+  spec: {
+    watchResources: string[]
+    reconcile: ReconcileRule[]
+    statusConditions?: StatusConditionDef[]
+  }
+  ui: PluginUI
+}
+
+export interface StatusConditionDef {
+  type: string
+  reason: string
+  message: string
+  targetStatus: string
+}
+
+export interface CustomResource {
+  apiVersion: string
+  kind: string
+  metadata: { name: string; namespace: string; uid?: string }
+  spec: Record<string, unknown>
+  status: Record<string, unknown>
+}
+
+export interface Controller {
+  name: string
+  config: OperatorConfig
+  reconcile(event: ReconcileEvent): ReconcileResult[]
+}
+
+export interface ReconcileEvent {
+  eventType: 'Added' | 'Modified' | 'Deleted'
+  resource: Record<string, unknown>
+  existingResources: CustomResource[]
+}
+
+export interface ReconcileResult {
+  messages: SimMessage[]
+  resourceChanges: { created?: CustomResource; updated?: CustomResource; deleted?: string }
+}
+
 // Scenario types
 
 export interface Scenario {
@@ -150,6 +237,8 @@ export interface Scenario {
   description: string
   podYaml: Record<string, unknown>
   injectErrors?: { phase: Phase; messageType: string; error: SimError }[]
+  resourceType?: 'Pod' | 'Deployment' | 'DaemonSet' | 'Job' | 'CronJob'
+  operators?: string[]
 }
 
 // React Flow node data
