@@ -1,6 +1,41 @@
 import { useState } from 'react'
 import { useSimulationStore } from '../../store/simulation-store'
 
+const messageDescriptions: Record<string, string> = {
+  // Submit phase
+  CREATE_POD: '用户通过 kubectl 提交 Pod 创建请求',
+  WRITE_POD: 'API Server 将 Pod 数据写入 etcd 持久化存储',
+  WRITE_POD_RESPONSE: 'etcd 确认数据写入成功，返回修订版本号',
+  CREATE_POD_RESPONSE: 'API Server 返回 Pod 创建结果给用户',
+  // Controller phase
+  WATCH_EVENT_POD_ADDED: 'etcd 通过 Watch 机制通知 controller-manager 有新 Pod 创建',
+  // Operator phase
+  RECONCILE_TRIGGERED: '控制器被触发，开始调谐（Reconcile）循环',
+  CALCULATE_DIFF: '计算期望状态与实际状态的差异',
+  CREATE_RESOURCE: '控制器创建新的子资源',
+  UPDATE_STATUS: '控制器更新资源的 Status 字段',
+  CRON_TRIGGERED: 'Cron 定时器触发，创建新的 Job',
+  // Scheduling phase
+  WATCH_EVENT_UNSCHEDULED_POD: 'etcd 通知调度器有未调度的 Pod 需要分配节点',
+  FILTER_NODES: '调度器执行预选（Predicates），过滤不满足条件的节点',
+  SCORE_NODES: '调度器执行优选（Priorities），对可行节点打分排名',
+  BIND_POD: '调度器将 Pod 绑定到得分最高的节点',
+  UPDATE_POD_BIND: 'API Server 将节点绑定信息写入 etcd',
+  // Kubelet phase
+  WATCH_EVENT_POD_BOUND: 'etcd 通知 Kubelet 有 Pod 已绑定到本节点',
+  CREATE_SANDBOX: 'Kubelet 通过 CRI 创建 Pod 沙箱（Pause 容器）',
+  CNI_SETUP: 'Kubelet 调用 CNI 插件为 Pod 配置网络并分配 IP',
+  CSI_STAGE_VOLUME: 'Kubelet 调用 CSI 驱动将存储卷暂存到节点',
+  CSI_PUBLISH_VOLUME: 'Kubelet 调用 CSI 驱动将存储卷挂载到 Pod 目录',
+  PULL_IMAGE: 'Kubelet 通过 CRI 拉取容器镜像',
+  START_CONTAINER: 'Kubelet 通过 CRI 启动业务容器',
+  UPDATE_POD_STATUS: 'Kubelet 更新 Pod 状态为 Running',
+  WRITE_POD_STATUS: 'API Server 将 Pod 运行状态写入 etcd',
+  // Legacy operator plugin
+  OPERATOR_CREATECONFIGMAP: 'Operator 插件创建 ConfigMap',
+  OPERATOR_CREATERESOURCE: 'Operator 插件创建资源',
+}
+
 function JsonBlock({ data }: { data: unknown }) {
   return (
     <pre className="text-xs text-green-400 bg-gray-900 p-3 rounded overflow-auto max-h-[300px] whitespace-pre-wrap">
@@ -37,9 +72,16 @@ export function DetailPanel() {
         {tab === 'request' && (
           currentMsg ? (
             <div className="space-y-3">
-              <div className="text-xs text-gray-400">
-                <span className="text-yellow-400">{currentMsg.type}</span>
-                {' '}({currentMsg.phase})
+              <div>
+                <div className="text-xs text-gray-400">
+                  <span className="text-yellow-400">{currentMsg.type}</span>
+                  {' '}({currentMsg.phase})
+                </div>
+                {messageDescriptions[currentMsg.type] && (
+                  <div className="text-xs text-gray-300 mt-1">
+                    {messageDescriptions[currentMsg.type]}
+                  </div>
+                )}
               </div>
               <div>
                 <div className="text-xs text-gray-500 mb-1">From → To</div>
