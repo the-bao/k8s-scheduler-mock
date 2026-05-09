@@ -8,12 +8,19 @@ import type {
   ResourceStore,
   PluginConfig,
   Scenario,
+  OperatorConfig,
+  CustomResource,
 } from '../types/simulation'
 import {
   generateMessages,
   getDefaultNodes,
   getDefaultResources,
 } from '../engine/simulation'
+import { DeploymentController } from '../engine/operators/deployment'
+import { ReplicaSetController } from '../engine/operators/replicaset'
+import { DaemonSetController } from '../engine/operators/daemonset'
+import { JobController } from '../engine/operators/job'
+import { CronJobController } from '../engine/operators/cronjob'
 
 interface SimulationState {
   status: SimulationStatus
@@ -23,6 +30,8 @@ interface SimulationState {
   resources: ResourceStore
   nodes: SimNode[]
   plugins: PluginConfig[]
+  operators: OperatorConfig[]
+  customResources: Record<string, Record<string, CustomResource>>
   breakpoints: string[]
 
   startSimulation: (
@@ -37,6 +46,9 @@ interface SimulationState {
   jumpTo: (index: number) => void
   addPlugin: (plugin: PluginConfig) => void
   removePlugin: (name: string) => void
+  addOperator: (operator: OperatorConfig) => void
+  removeOperator: (name: string) => void
+  loadBuiltinOperators: () => void
   toggleBreakpoint: (messageId: string) => void
   reset: () => void
 }
@@ -49,26 +61,37 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   resources: getDefaultResources(),
   nodes: getDefaultNodes(),
   plugins: [],
+  operators: [],
+  customResources: {},
   breakpoints: [],
 
   startSimulation(podSpec, scenario) {
     const plugins = get().plugins
-    const messages = generateMessages(podSpec, plugins, scenario)
+    const operators = get().operators
+    const messages = generateMessages(podSpec, plugins, scenario, operators)
 
-    // Build node list: builtins + plugin nodes
+    // Build node list: builtins + plugin nodes + operator nodes
     const pluginNodes: SimNode[] = plugins.map((p) => ({
       id: p.metadata.name,
-      type: 'plugin',
+      type: 'plugin' as const,
       component: p.metadata.name,
       label: p.metadata.name,
-      state: 'idle',
+      state: 'idle' as const,
+    }))
+
+    const operatorNodes: SimNode[] = operators.map((o) => ({
+      id: o.metadata.name,
+      type: 'plugin' as const,
+      component: o.metadata.name,
+      label: o.metadata.name,
+      state: 'idle' as const,
     }))
 
     set({
       status: 'running',
       messages,
       currentIndex: -1,
-      nodes: [...getDefaultNodes(), ...pluginNodes],
+      nodes: [...getDefaultNodes(), ...pluginNodes, ...operatorNodes],
       resources: getDefaultResources(),
     })
   },
@@ -121,6 +144,29 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     }))
   },
 
+  addOperator(operator) {
+    set((state) => ({ operators: [...state.operators, operator] }))
+  },
+
+  removeOperator(name) {
+    set((state) => ({
+      operators: state.operators.filter((o) => o.metadata.name !== name),
+    }))
+  },
+
+  loadBuiltinOperators() {
+    set((state) => ({
+      operators: [
+        ...state.operators,
+        new DeploymentController().config,
+        new ReplicaSetController().config,
+        new DaemonSetController().config,
+        new JobController().config,
+        new CronJobController().config,
+      ],
+    }))
+  },
+
   toggleBreakpoint(messageId) {
     set((state) => {
       const has = state.breakpoints.includes(messageId)
@@ -141,6 +187,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       resources: getDefaultResources(),
       nodes: getDefaultNodes(),
       breakpoints: [],
+      customResources: {},
     })
   },
 }))
