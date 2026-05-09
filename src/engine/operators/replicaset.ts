@@ -65,8 +65,8 @@ export class ReplicaSetController implements Controller {
 
       const triggerMsg = makeMessage(
         {
-          from: 'controller-manager',
-          to: 'controller-manager',
+          from: this.name,
+          to: this.name,
           phase: 'operator',
           type: 'RECONCILE_TRIGGERED',
           request: { resource: rsName, kind: 'ReplicaSet' },
@@ -77,7 +77,7 @@ export class ReplicaSetController implements Controller {
 
       const createMsg = makeMessage(
         {
-          from: 'controller-manager',
+          from: this.name,
           to: 'api-server',
           phase: 'operator',
           type: 'CREATE_RESOURCE',

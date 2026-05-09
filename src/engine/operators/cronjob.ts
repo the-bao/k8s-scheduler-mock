@@ -59,9 +59,9 @@ export class CronJobController implements Controller {
         messages: [
           makeMessage(
             {
-              from: 'controller-manager',
+              from: this.name,
               to: 'api-server',
-              phase: 'controller',
+              phase: 'operator',
               type: 'CRON_TRIGGERED',
               request: {
                 kind: 'CronJob',
@@ -75,9 +75,9 @@ export class CronJobController implements Controller {
           ),
           makeMessage(
             {
-              from: 'controller-manager',
+              from: this.name,
               to: 'api-server',
-              phase: 'controller',
+              phase: 'operator',
               type: 'CREATE_RESOURCE',
               request: {
                 kind: 'Job',

@@ -62,8 +62,8 @@ export class DeploymentController implements Controller {
     // Message 1: RECONCILE_TRIGGERED
     const reconcileMsg = makeMessage(
       {
-        from: 'controller-manager',
-        to: 'controller-manager',
+        from: this.name,
+        to: this.name,
         phase: 'operator',
         type: 'RECONCILE_TRIGGERED',
         request: { resource: deployName, kind: 'Deployment' },
@@ -75,8 +75,8 @@ export class DeploymentController implements Controller {
     // Message 2: CALCULATE_DIFF
     const diffMsg = makeMessage(
       {
-        from: 'controller-manager',
-        to: 'controller-manager',
+        from: this.name,
+        to: this.name,
         phase: 'operator',
         type: 'CALCULATE_DIFF',
         request: { resource: deployName, kind: 'Deployment', desiredReplicas: replicas },
@@ -92,7 +92,7 @@ export class DeploymentController implements Controller {
     // Message 3: CREATE_RESOURCE
     const createMsg = makeMessage(
       {
-        from: 'controller-manager',
+        from: this.name,
         to: 'api-server',
         phase: 'operator',
         type: 'CREATE_RESOURCE',
@@ -119,7 +119,7 @@ export class DeploymentController implements Controller {
     // Message 4: UPDATE_STATUS
     const statusMsg = makeMessage(
       {
-        from: 'controller-manager',
+        from: this.name,
         to: 'api-server',
         phase: 'operator',
         type: 'UPDATE_STATUS',

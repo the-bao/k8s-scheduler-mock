@@ -43,8 +43,8 @@ export class DaemonSetController implements Controller {
 
     const triggerMsg = makeMessage(
       {
-        from: 'controller-manager',
-        to: 'daemonset-controller',
+        from: this.name,
+        to: this.name,
         phase: 'operator',
         type: 'RECONCILE_TRIGGERED',
         request: { daemonset: dsMeta.name },

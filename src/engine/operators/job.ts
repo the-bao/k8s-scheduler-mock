@@ -75,9 +75,9 @@ export class JobController implements Controller {
         messages: [
           makeMessage(
             {
-              from: 'controller-manager',
+              from: this.name,
               to: 'api-server',
-              phase: 'controller',
+              phase: 'operator',
               type: 'CREATE_RESOURCE',
               request: { kind: 'Pod', name: podName, namespace: meta.namespace },
               latency: 5,
@@ -95,9 +95,9 @@ export class JobController implements Controller {
       lastResult.messages.push(
         makeMessage(
           {
-            from: 'controller-manager',
+            from: this.name,
             to: 'api-server',
-            phase: 'controller',
+            phase: 'operator',
             type: 'UPDATE_STATUS',
             request: {
               kind: 'Job',
