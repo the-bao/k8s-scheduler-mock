@@ -207,7 +207,7 @@ export interface StatusConditionDef {
 export interface CustomResource {
   apiVersion: string
   kind: string
-  metadata: { name: string; namespace: string; uid?: string }
+  metadata: { name: string; namespace: string; uid?: string; labels?: Record<string, string> }
   spec: Record<string, unknown>
   status: Record<string, unknown>
 }
@@ -215,7 +215,7 @@ export interface CustomResource {
 export interface Controller {
   name: string
   config: OperatorConfig
-  reconcile(event: ReconcileEvent): ReconcileResult[]
+  reconcile(event: ReconcileEvent, nodeNames?: string[]): ReconcileResult[]
 }
 
 export interface ReconcileEvent {

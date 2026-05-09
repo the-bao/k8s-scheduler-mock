@@ -7,6 +7,7 @@ import type {
   NodeResource,
   PluginConfig,
   Scenario,
+  OperatorConfig,
 } from '../types/simulation'
 
 import { resetMsgCounter, createTimestampFactory } from './types'
@@ -14,6 +15,8 @@ import { generateSubmitPhase } from './phases/submit'
 import { generateControllerPhase } from './phases/controller'
 import { generateSchedulingPhase } from './phases/scheduling'
 import { generateKubeletPhase } from './phases/kubelet'
+import { generateOperatorPhase } from './phases/operator'
+import { createRegistryWithBuiltins } from './operators'
 
 // ── Builtin nodes ─────────────────────────────────────────────────────
 const builtinComponents = [
@@ -56,6 +59,7 @@ export function generateMessages(
   podSpec: Record<string, unknown>,
   plugins: PluginConfig[],
   scenario?: Scenario,
+  operators?: OperatorConfig[],
 ): SimMessage[] {
   resetMsgCounter()
   const { t } = createTimestampFactory()
@@ -68,9 +72,26 @@ export function generateMessages(
   const messages: SimMessage[] = [
     ...generateSubmitPhase(phaseInput),
     ...generateControllerPhase({ ...phaseInput, plugins }),
+  ]
+
+  // Operator phase — only for CRD resources (not plain Pods)
+  const resourceKind = String(podSpec.kind ?? '')
+  const isPod = resourceKind === 'Pod' || !resourceKind
+  if (!isPod) {
+    const registry = createRegistryWithBuiltins()
+    const operatorMessages = generateOperatorPhase({
+      ...phaseInput,
+      operators: operators ?? [],
+      customResources: {},
+      nodeNames: defaultNodeResources.map((n) => n.name),
+    }, registry)
+    messages.push(...operatorMessages)
+  }
+
+  messages.push(
     ...generateSchedulingPhase({ ...phaseInput, nodeResources: defaultNodeResources }),
     ...generateKubeletPhase(phaseInput),
-  ]
+  )
 
   // ── Apply scenario error injections ──────────────────────────────────
   if (scenario?.injectErrors) {
