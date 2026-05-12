@@ -84,9 +84,14 @@ export class Simulation {
 
     // Wire MessageBus to record events (after actors are subscribed)
     // This also converts events to SimMessages for UI display
-    const originalPublish = this.bus.publish.bind(this.bus)
+    const busHandlers = this.bus.handlers
     this.bus.publish = (event: SimEvent) => {
-      originalPublish(event)
+      // Call handlers directly to avoid infinite recursion
+      busHandlers.get(event.type)?.forEach(h => h(event))
+      if (event.to && event.to !== '*') {
+        busHandlers.get(`to:${event.to}`)?.forEach(h => h(event))
+      }
+      // Record event
       this.history.record(event)
       this.reactiveStore.appendEvent(event)
 
@@ -162,7 +167,7 @@ export class Simulation {
     this.nodes = this.nodes.filter((n) => n.id !== name)
   }
 
-  play(): void { this.playback.play(); this.status = 'running' }
+  play(): void { console.log('[Sim] play called, this:', this, 'playback:', this?.playback); this.playback.play(); this.status = 'running' }
   pause(): void { this.playback.pause(); this.status = 'paused' }
   stepForward(): void { this.playback.stepForward(); this.status = 'paused' }
   stepBackward(): void { this.playback.stepBackward() }

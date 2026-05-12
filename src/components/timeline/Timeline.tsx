@@ -27,19 +27,19 @@ export function Timeline({ sim }: TimelineProps) {
       {/* Controls */}
       <div className="flex items-center gap-2 mb-2">
         <button
-          onClick={isRunning ? sim.pause : sim.play}
+          onClick={() => isRunning ? sim.pause() : sim.play()}
           className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs"
         >
           {isRunning ? 'Pause' : 'Play'}
         </button>
         <button
-          onClick={sim.stepBackward}
+          onClick={() => sim.stepBackward()}
           className="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-xs"
         >
           ← Step
         </button>
         <button
-          onClick={sim.stepForward}
+          onClick={() => sim.stepForward()}
           className="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-xs"
         >
           Step →
