@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { useSimulationStore } from '../../store/simulation-store'
+import type { Simulation } from '../../engine/simulation-fsm'
+import type { SimMessage, PodResource, NodeResource, CustomResource } from '../../types/simulation'
 
 const messageDescriptions: Record<string, string> = {
   // Submit phase
@@ -44,9 +45,16 @@ function JsonBlock({ data }: { data: unknown }) {
   )
 }
 
-export function DetailPanel() {
+interface DetailPanelProps {
+  sim: Pick<Simulation, 'getMessages' | 'getCurrentIndex' | 'getResources'>
+}
+
+export function DetailPanel({ sim }: DetailPanelProps) {
   const [tab, setTab] = useState<'request' | 'logs' | 'status'>('request')
-  const { messages, currentIndex, resources } = useSimulationStore()
+
+  const messages = sim.getMessages()
+  const currentIndex = sim.getCurrentIndex()
+  const resources = sim.getResources()
 
   const currentMsg = currentIndex >= 0 ? messages[currentIndex] : null
 
@@ -116,7 +124,7 @@ export function DetailPanel() {
 
         {tab === 'logs' && (
           <div className="space-y-1 font-mono text-xs">
-            {messages.slice(0, currentIndex + 1).map((msg, i) => (
+            {messages.slice(0, currentIndex + 1).map((msg: SimMessage, i: number) => (
               <div key={msg.id} className={`py-0.5 ${i === currentIndex ? 'bg-gray-800 -mx-1 px-1 rounded' : ''}`}>
                 <span className="text-gray-500">{new Date(msg.timestamp).toISOString().slice(11, 23)}</span>{' '}
                 <span className="text-cyan-400">[{msg.from}]</span>{' '}
@@ -135,7 +143,7 @@ export function DetailPanel() {
               {Object.keys(resources.pods).length === 0 ? (
                 <div className="text-gray-600 text-xs">No pods</div>
               ) : (
-                Object.entries(resources.pods).map(([name, pod]) => (
+                Object.entries<PodResource>(resources.pods).map(([name, pod]) => (
                   <div key={name} className="text-xs mb-1">
                     <span className="text-white">{name}</span>{' '}
                     <span className={pod.status === 'Running' ? 'text-green-400' : 'text-yellow-400'}>
@@ -148,7 +156,7 @@ export function DetailPanel() {
             </div>
             <div>
               <div className="text-xs text-gray-500 mb-2">Nodes</div>
-              {Object.entries(resources.nodes).map(([name, node]) => (
+              {Object.entries<NodeResource>(resources.nodes).map(([name, node]) => (
                 <div key={name} className="text-xs mb-2">
                   <div className="text-white">{name}</div>
                   <div className="text-gray-400 ml-2">
@@ -162,8 +170,8 @@ export function DetailPanel() {
               {Object.keys(resources.customResources).length === 0 ? (
                 <div className="text-gray-600 text-xs">No custom resources</div>
               ) : (
-                Object.entries(resources.customResources).flatMap(([gvk, resourcesByName]) =>
-                  Object.entries(resourcesByName).map(([name, cr]) => (
+                Object.entries<Record<string, CustomResource>>(resources.customResources).flatMap(([gvk, resourcesByName]) =>
+                  Object.entries<CustomResource>(resourcesByName).map(([name, cr]) => (
                     <div key={`${gvk}-${name}`} className="text-xs mb-1">
                       <span className="text-white">{name}</span>{' '}
                       <span className="text-cyan-400">{cr.kind}</span>

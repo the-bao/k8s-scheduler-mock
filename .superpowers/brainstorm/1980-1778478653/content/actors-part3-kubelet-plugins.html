@@ -1,0 +1,106 @@
+<h2>Actor FSM Definitions — Part 3: Kubelet & Plugin Actors</h2>
+<p class="subtitle">KubeletActor (per node) + CRIActor, CNIActor, CSIActor</p>
+
+<div style="display: flex; gap: 24px;">
+  <div style="flex: 1;">
+    <div class="mockup">
+      <div class="mockup-header">KubeletActor (per node)</div>
+      <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.7; padding: 16px;">
+<pre style="margin:0; color: #e2e8f0;">
+<span style="color: #60a5fa;">States:</span>
+  idle · creating_sandbox · settingup_network
+  mounting_volumes · pulling_image · starting_container
+  running · restarting · terminating · error
+
+<span style="color: #60a5fa;">Happy Path:</span>
+
+idle ──[POD_BOUND]──→ creating_sandbox
+  │ route CREATE_SANDBOX → CRI
+  │
+creating_sandbox ──[SANDBOX_OK]──→ settingup_network
+  │ route CNI_SETUP → CNI       │
+creating_sandbox ──[SANDBOX_FAIL]──→ error
+  │
+settingup_network ──[CNI_OK]──→ mounting_volumes
+  │ route CSI_STAGE + CSI_PUBLISH │
+settingup_network ──[CNI_FAIL]──→ error
+  │
+mounting_volumes ──[CSI_OK]──→ pulling_image
+  │ route PULL_IMAGE → CRI       │
+mounting_volumes ──[CSI_FAIL]──→ error
+  │
+pulling_image ──[PULL_OK]──→ starting_container
+  │ route START_CONTAINER → CRI  │
+pulling_image ──[PULL_FAIL]──→ error
+  │
+starting_container ──[START_OK]──→ running
+  │ publish POD_RUNNING           │
+  │ update pod status in etcd     │
+starting_container ──[START_FAIL]──→ error
+
+<span style="color: #60a5fa;">Running Phase:</span>
+running ──[TICK]──→ running
+  │ run health probe
+  │ if fail → emit PROBE_FAIL to self
+  │
+running ──[PROBE_FAIL]──→ restarting
+  │ restart container             │
+restarting ──[TICK]──→ running
+  │ (or → error if retry exceeded)
+  │
+running ──[POD_DELETED]──→ terminating
+  │ cleanup CNI, CSI, CRI        │
+terminating ──→ idle
+
+<span style="color: #60a5fa;">Error Recovery:</span>
+error ──[TICK]──→ idle
+  │ publish POD_FAILED
+  │ backoff, controller will reconcile
+</pre>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex: 1;">
+    <div class="mockup">
+      <div class="mockup-header">CRIActor / CNIActor / CSIActor</div>
+      <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.7; padding: 16px;">
+<pre style="margin:0; color: #e2e8f0;">
+<span style="color: #60a5fa;">All three share the same FSM shape:</span>
+
+idle ──[&lt;OPERATION&gt;]──→ processing
+  │ execute operation
+  │ emit &lt;OPERATION&gt;_OK or
+  │      &lt;OPERATION&gt;_FAIL
+  ▼
+idle ←── processing
+
+<span style="color: #60a5fa;">CRIActor Operations:</span>
+  CREATE_SANDBOX → SANDBOX_OK / SANDBOX_FAIL
+  PULL_IMAGE     → PULL_OK / PULL_FAIL
+  START_CONTAINER → START_OK / START_FAIL
+
+<span style="color: #60a5fa;">CNIActor Operations:</span>
+  CNI_SETUP → CNI_OK / CNI_FAIL
+
+<span style="color: #60a5fa;">CSIActor Operations:</span>
+  CSI_STAGE_VOLUME   → CSI_STAGE_OK / CSI_STAGE_FAIL
+  CSI_PUBLISH_VOLUME → CSI_PUBLISH_OK / CSI_PUBLISH_FAIL
+
+<span style="color: #60a5fa;">Fault Injection:</span>
+Scenario errors are injected by
+publishing *_FAIL instead of *_OK
+when the scenario config matches
+the current operation type.
+</pre>
+      </div>
+    </div>
+
+    <h4 style="margin-top: 12px;">Design Notes</h4>
+    <div style="font-size: 13px;">
+      <p><strong>Per-node Kubelet</strong> — each node gets its own KubeletActor instance (actorId: <code>kubelet:node-1</code>), supporting multi-node simulation.</p>
+      <p><strong>Plugin Actors are thin</strong> — they model external systems (CRI/CNI/CSI) as simple request/response FSMs. Fault injection works by overriding the response event.</p>
+      <p><strong>Cleanup on terminate</strong> — terminating state sends cleanup requests to CNI/CSI/CRI in reverse order before returning to idle.</p>
+    </div>
+  </div>
+</div>

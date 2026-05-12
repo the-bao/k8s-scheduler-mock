@@ -1,0 +1,64 @@
+<h2>Section 1: Overall Architecture</h2>
+<p class="subtitle">Actor Network + Event Bus + Playback Controller</p>
+
+<div class="mockup">
+  <div class="mockup-header">Architecture Overview</div>
+  <div class="mockup-body" style="font-family: monospace; font-size: 13px; line-height: 1.6; padding: 24px;">
+
+<pre style="margin:0; color: #e2e8f0;">
+┌─────────────────────────────────────────────────────────────┐
+│                      React UI Layer                         │
+│  (FlowCanvas, Timeline, DetailPanel, Toolbar)               │
+│         ↕ Zustand store (view state only)                    │
+└─────────────────────┬───────────────────────────────────────┘
+                      │ subscribe / dispatch
+┌─────────────────────┴───────────────────────────────────────┐
+│                   Playback Controller                        │
+│  Controls event delivery rate, manages snapshots             │
+│  (play / pause / step / jump / speed)                        │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+┌─────────────────────┴───────────────────────────────────────┐
+│                      Event Bus                               │
+│  • Records all inter-actor events (event log)                │
+│  • Buffers events, delivers on PlaybackController signal     │
+│  • Emits state snapshots for UI updates                      │
+│  • Supports snapshot/restore for step-backward               │
+└────┬──────┬──────┬──────┬──────┬──────┬──────┬──────┬───────┘
+     │      │      │      │      │      │      │      │
+  ┌──┴─┐ ┌─┴──┐ ┌─┴──┐ ┌─┴────┐ ┌┴────┐ ┌┴────┐ ┌┴───┐ ┌┴───┐
+  │API │ │    │ │    │ │Ctrlr│ │     │ │     │ │    │ │    │
+  │Svr │ │etcd│ │Schd│ │Mgr  │ │Kbelt│ │ CRI │ │CNI │ │CSI │
+  └────┘ └────┘ └────┘ └─────┘ └─────┘ └─────┘ └────┘ └────┘
+  Each is an XState Actor with its own state machine.
+  Custom plugins/operators are also actors on this bus.
+</pre>
+
+  </div>
+</div>
+
+<h3>Three Layers</h3>
+<div class="section">
+  <div style="display: flex; gap: 16px;">
+    <div style="flex: 1; padding: 16px; background: #1e293b; border-radius: 8px;">
+      <h4 style="color: #60a5fa;">Component Actors</h4>
+      <p style="font-size: 14px;">Each K8s component is an independent XState actor. Owns its state machine, generates messages on transitions, responds to incoming events. No knowledge of other actors.</p>
+    </div>
+    <div style="flex: 1; padding: 16px; background: #1e293b; border-radius: 8px;">
+      <h4 style="color: #34d399;">Event Bus</h4>
+      <p style="font-size: 14px;">Decouples actors. Records event log, buffers events, delivers on PlaybackController signal. Emits state change notifications to UI. Manages snapshots.</p>
+    </div>
+    <div style="flex: 1; padding: 16px; background: #1e293b; border-radius: 8px;">
+      <h4 style="color: #f472b6;">Playback Controller</h4>
+      <p style="font-size: 14px;">Controls simulation flow. Tells Event Bus when to deliver the next event. Manages auto-play speed, snapshots for backward navigation. State: idle/running/paused/completed.</p>
+    </div>
+  </div>
+</div>
+
+<h3>Key Invariants</h3>
+<ul>
+  <li>Actors never talk to each other directly — all communication through Event Bus</li>
+  <li>Actors never talk to React — Event Bus emits state changes to Zustand</li>
+  <li>Playback Controller never touches Actor internals — it only controls event delivery timing</li>
+  <li>Each Actor can be tested in isolation by feeding events and observing outputs</li>
+</ul>

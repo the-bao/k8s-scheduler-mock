@@ -1,0 +1,78 @@
+<h2>Revised Architecture: 5-Layer Design</h2>
+<p class="subtitle">Merging document's layering with our Actor Network + Event Bus approach, powered by XState</p>
+
+<div class="mockup">
+  <div class="mockup-header">5-Layer Architecture (Revised)</div>
+  <div class="mockup-body" style="font-family: monospace; font-size: 13px; line-height: 1.6; padding: 24px;">
+<pre style="margin:0; color: #e2e8f0;">
+┌─────────────────────────────────────────────────────────────┐
+│  L1  Trigger Layer                                          │
+│      UserAction (kubectl apply/delete/scale)                 │
+│      TickClock (simulated time: probes, retries, heartbeats) │
+└──────────────────────────┬──────────────────────────────────┘
+                           │ dispatch(event)
+┌──────────────────────────▼──────────────────────────────────┐
+│  L2  MessageBus Layer                                        │
+│      MessageBus (publish / route / subscribe)                │
+│      EventHistory (record all events, deterministic replay)  │
+│      PlaybackController (controls delivery timing)           │
+└──────────────────────────┬──────────────────────────────────┘
+                           │ route → Actor.mailbox
+┌──────────────────────────▼──────────────────────────────────┐
+│  L3  Actor Runtime Layer                                     │
+│      ActorRegistry (lookup by ID, multi-instance support)    │
+│      Actor&lt;S, E&gt; (base class: mailbox + lifecycle)           │
+│      XState Machine (FSM engine per actor)                   │
+│      TransitionDSL (declarative rules with guards)           │
+└──────────────────────────┬──────────────────────────────────┘
+                           │ side-effects / read-write
+┌──────────────────────────▼──────────────────────────────────┐
+│  L4  K8s Domain Layer                                       │
+│      APIServerActor · SchedulerActor · KubeletActor           │
+│      ControllerManagerActor · OperatorActors                  │
+│      EtcdStore (in-memory resource storage, versioned)        │
+│      PodObject · NodeObject (pure data)                       │
+└──────────────────────────┬──────────────────────────────────┘
+                           │ state changes → notify
+┌──────────────────────────▼──────────────────────────────────┐
+│  L5  View Bridge Layer                                       │
+│      ReactiveStore (adapts actor state to React)             │
+│      useSyncExternalStore (React 18 standard API)            │
+│      Zustand (existing UI state: speed, panel tabs, etc.)    │
+│      FlowCanvas · Timeline · DetailPanel · Toolbar            │
+└─────────────────────────────────────────────────────────────┘
+</pre>
+  </div>
+</div>
+
+<h3>Layer Dependencies (unidirectional, downward only)</h3>
+<div style="display: flex; gap: 12px; flex-wrap: wrap;">
+  <div style="flex: 1; min-width: 180px; padding: 12px; background: #1e293b; border-radius: 8px; border-left: 3px solid #60a5fa;">
+    <h4 style="color: #60a5fa; margin: 0;">L1 Trigger</h4>
+    <p style="font-size: 13px; margin: 4px 0 0;">Knows: L2 (dispatches to bus)<br><em>Does NOT know:</em> L3, L4, L5</p>
+  </div>
+  <div style="flex: 1; min-width: 180px; padding: 12px; background: #1e293b; border-radius: 8px; border-left: 3px solid #34d399;">
+    <h4 style="color: #34d399; margin: 0;">L2 MessageBus</h4>
+    <p style="font-size: 13px; margin: 4px 0 0;">Knows: L3 (routes to actors)<br><em>Does NOT know:</em> L1, L4, L5</p>
+  </div>
+  <div style="flex: 1; min-width: 180px; padding: 12px; background: #1e293b; border-radius: 8px; border-left: 3px solid #f472b6;">
+    <h4 style="color: #f472b6; margin: 0;">L3 Actor Runtime</h4>
+    <p style="font-size: 13px; margin: 4px 0 0;">Knows: XState FSM engine only<br><em>Does NOT know:</em> L1, L4, L5</p>
+  </div>
+  <div style="flex: 1; min-width: 180px; padding: 12px; background: #1e293b; border-radius: 8px; border-left: 3px solid #fbbf24;">
+    <h4 style="color: #fbbf24; margin: 0;">L4 K8s Domain</h4>
+    <p style="font-size: 13px; margin: 4px 0 0;">Knows: L2 (bus), L3 (Actor base)<br><em>Does NOT know:</em> L1, L5</p>
+  </div>
+  <div style="flex: 1; min-width: 180px; padding: 12px; background: #1e293b; border-radius: 8px; border-left: 3px solid #a78bfa;">
+    <h4 style="color: #a78bfa; margin: 0;">L5 View Bridge</h4>
+    <p style="font-size: 13px; margin: 4px 0 0;">Knows: L4 (subscribes to state)<br><em>Does NOT know:</em> L1, L2, L3</p>
+  </div>
+</div>
+
+<h3 style="margin-top: 24px;">Key Design Invariants</h3>
+<ul>
+  <li><strong>FSM engine is pluggable</strong> — L3 defines the Actor interface, XState is one implementation. Can swap to custom FSMEngine later.</li>
+  <li><strong>EtcdStore separates concerns</strong> — K8s resources live in EtcdStore (L4), not in Zustand. Zustand only holds UI state.</li>
+  <li><strong>Deterministic replay</strong> — same event sequence → same state. EventHistory enables time-travel debugging.</li>
+  <li><strong>TickClock decouples time</strong> — no real timers in actors. All time-based behavior driven by TICK events.</li>
+</ul>

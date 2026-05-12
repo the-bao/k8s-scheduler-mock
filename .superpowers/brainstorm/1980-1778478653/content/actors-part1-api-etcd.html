@@ -1,0 +1,117 @@
+<h2>Actor FSM Definitions — Part 1: Control Plane Core</h2>
+<p class="subtitle">APIServerActor & EtcdActor — the request handling and storage backbone</p>
+
+<div style="display: flex; gap: 24px;">
+  <div style="flex: 1;">
+    <div class="mockup">
+      <div class="mockup-header">APIServerActor</div>
+      <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.7; padding: 16px;">
+<pre style="margin:0; color: #e2e8f0;">
+<span style="color: #60a5fa;">States:</span>
+  idle · validating · storing ·
+  broadcasting · updating
+
+<span style="color: #60a5fa;">Transitions:</span>
+
+idle ──[USER_APPLY]──→ validating
+  │ validate manifest
+  │
+validating ──[VALID_OK]──→ storing
+  │                     │
+validating ──[VALID_FAIL]──→ idle
+  │ emit error to user   │
+  │                      ▼
+storing ──[WRITE_OK]──→ broadcasting
+  │                    │
+storing ──[WRITE_FAIL]──→ idle
+  │ emit error          │ broadcast watch events
+  │                     │ (POD_CREATED, POD_UPDATED)
+  │                     ▼
+                  idle ←── broadcasting
+
+<span style="color: #60a5fa;">Also handles:</span>
+idle ──[BIND_REQUEST]──→ updating
+  │ update pod.nodeName
+  │ broadcast POD_BOUND
+  ▼
+idle ←── updating
+
+idle ──[STATUS_UPDATE]──→ updating
+  │ update pod.status
+  │ broadcast POD_UPDATED
+  ▼
+idle ←── updating
+</pre>
+      </div>
+    </div>
+
+    <h4 style="margin-top: 12px;">Emitted Events</h4>
+    <table style="width:100%; font-size: 13px; border-collapse: collapse;">
+      <tr style="border-bottom: 1px solid #334155;">
+        <td style="padding: 4px 8px; color: #34d399;">POD_CREATED</td>
+        <td style="padding: 4px 8px;">→ Scheduler, ControllerMgr</td>
+      </tr>
+      <tr style="border-bottom: 1px solid #334155;">
+        <td style="padding: 4px 8px; color: #34d399;">POD_BOUND</td>
+        <td style="padding: 4px 8px;">→ Kubelet (matched node)</td>
+      </tr>
+      <tr style="border-bottom: 1px solid #334155;">
+        <td style="padding: 4px 8px; color: #34d399;">POD_UPDATED</td>
+        <td style="padding: 4px 8px;">→ ControllerMgr, View</td>
+      </tr>
+      <tr>
+        <td style="padding: 4px 8px; color: #f87171;">ERROR_RESPONSE</td>
+        <td style="padding: 4px 8px;">→ User (on validation/store fail)</td>
+      </tr>
+    </table>
+  </div>
+
+  <div style="flex: 1;">
+    <div class="mockup">
+      <div class="mockup-header">EtcdActor</div>
+      <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.7; padding: 16px;">
+<pre style="margin:0; color: #e2e8f0;">
+<span style="color: #60a5fa;">States:</span>
+  idle · writing · reading
+
+<span style="color: #60a5fa;">Transitions:</span>
+
+idle ──[WRITE_REQUEST]──→ writing
+  │ write to in-memory map
+  │ increment revision
+  │ emit WRITE_RESPONSE
+  │ emit WATCH_EVENT for subscribers
+  ▼
+idle ←── writing
+
+idle ──[READ_REQUEST]──→ reading
+  │ lookup from map
+  │ emit READ_RESPONSE
+  ▼
+idle ←── reading
+
+<span style="color: #60a5fa;">Watch Mechanism:</span>
+When a key is written:
+  1. Store value in memory Map
+  2. Increment revision counter
+  3. Publish WATCH_EVENT_{type}
+     to all subscribers of that
+     key prefix
+
+<span style="color: #60a5fa;">Subscriptions:</span>
+  /registry/pods/*     → Scheduler
+                        ControllerMgr
+  /registry/pods/*/status → Kubelet
+</pre>
+      </div>
+    </div>
+
+    <h4 style="margin-top: 12px;">Key Design Notes</h4>
+    <ul style="font-size: 13px;">
+      <li><strong>Versioned storage</strong> — every write increments a revision number, enabling WATCH to detect changes</li>
+      <li><strong>Watch = pub/sub on key prefix</strong> — mirrors real etcd Watch semantics</li>
+      <li><strong>Pure data store</strong> — no business logic, just CRUD + notifications</li>
+      <li><strong>Error state not needed</strong> — in-memory store doesn't fail (real etcd could, simulated doesn't)</li>
+    </ul>
+  </div>
+</div>

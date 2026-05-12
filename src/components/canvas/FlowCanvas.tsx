@@ -8,14 +8,21 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useMemo } from 'react'
-import { useSimulationStore } from '../../store/simulation-store'
 import { K8sNode } from './K8sNode'
 import { builtinPositions, builtinEdges, buildOperatorEdges, getOperatorPosition } from './node-layout'
+import type { Simulation } from '../../engine/simulation-fsm'
+import type { SimNode } from '../../types/simulation'
 
 const nodeTypes = { k8s: K8sNode }
 
-export function FlowCanvas() {
-  const { nodes: simNodes, messages, currentIndex } = useSimulationStore()
+interface FlowCanvasProps {
+  sim: Pick<Simulation, 'getNodes' | 'getMessages' | 'getCurrentIndex'>
+}
+
+export function FlowCanvas({ sim }: FlowCanvasProps) {
+  const simNodes = sim.getNodes()
+  const messages = sim.getMessages()
+  const currentIndex = sim.getCurrentIndex()
 
   const currentMsg = currentIndex >= 0 ? messages[currentIndex] : null
   const activeFrom = currentMsg?.from ?? null
@@ -23,7 +30,7 @@ export function FlowCanvas() {
   const hasError = !!currentMsg?.error
 
   const flowNodes: Node[] = useMemo(() => {
-    return simNodes.map((sn, i) => {
+    return simNodes.map((sn: SimNode, i: number) => {
       const pos = builtinPositions[sn.id] ?? getOperatorPosition(sn.id, i)
       const isActive = sn.id === activeFrom || sn.id === activeTo
       return {
@@ -41,8 +48,8 @@ export function FlowCanvas() {
 
   const flowEdges: Edge[] = useMemo(() => {
     const operatorNames = simNodes
-      .filter(sn => sn.id.includes('-controller') || sn.id.includes('-operator'))
-      .map(sn => sn.id)
+      .filter((sn: SimNode) => sn.id.includes('-controller') || sn.id.includes('-operator'))
+      .map((sn: SimNode) => sn.id)
     const allEdges = [...builtinEdges, ...buildOperatorEdges(operatorNames)]
 
     return allEdges.map((e) => {

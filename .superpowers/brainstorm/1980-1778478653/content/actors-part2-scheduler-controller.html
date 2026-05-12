@@ -1,0 +1,127 @@
+<h2>Actor FSM Definitions — Part 2: Scheduling & Control</h2>
+<p class="subtitle">SchedulerActor & ControllerManagerActor</p>
+
+<div style="display: flex; gap: 24px;">
+  <div style="flex: 1;">
+    <div class="mockup">
+      <div class="mockup-header">SchedulerActor</div>
+      <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.7; padding: 16px;">
+<pre style="margin:0; color: #e2e8f0;">
+<span style="color: #60a5fa;">States:</span>
+  idle · filtering · scoring · binding
+  error
+
+<span style="color: #60a5fa;">Transitions:</span>
+
+idle ──[POD_PENDING]──→ filtering
+  │ load pod spec, start filter
+  │
+  ├─[FILTER_DONE, candidates > 0]──→ scoring
+  │   run score plugins on candidates
+  │
+  ├─[FILTER_DONE, candidates = 0]──→ idle
+  │   emit POD_UNSCHEDULABLE
+  │
+  ├─[FILTER_ERROR]──→ error
+  │   emit POD_UNSCHEDULABLE
+  │
+  ▼
+scoring ──[SCORE_DONE]──→ binding
+  │
+  ├─[SCORE_DONE, all scores = 0]──→ idle
+  │   emit POD_UNSCHEDULABLE
+  │
+  ▼
+binding ──[BIND_OK]──→ idle
+  │ emit BIND_REQUEST → APIServer
+  │
+binding ──[BIND_FAIL]──→ idle
+  │ requeue pod (publish POD_PENDING)
+  │
+binding ──[TICK]──→ binding
+  │ retry timeout, emit BIND_FAIL
+
+<span style="color: #60a5fa;">Error Recovery:</span>
+error ──[TICK]──→ idle
+  │ backoff, requeue pod
+</pre>
+      </div>
+    </div>
+
+    <h4 style="margin-top: 12px;">Context Data</h4>
+    <table style="width:100%; font-size: 13px; border-collapse: collapse;">
+      <tr style="border-bottom: 1px solid #334155;">
+        <td style="padding: 4px 8px; color: #fbbf24;">pendingPod</td>
+        <td style="padding: 4px 8px;">Pod currently being scheduled</td>
+      </tr>
+      <tr style="border-bottom: 1px solid #334155;">
+        <td style="padding: 4px 8px; color: #fbbf24;">candidates</td>
+        <td style="padding: 4px 8px;">Nodes passing filter phase</td>
+      </tr>
+      <tr style="border-bottom: 1px solid #334155;">
+        <td style="padding: 4px 8px; color: #fbbf24;">scores</td>
+        <td style="padding: 4px 8px;">Map&lt;nodeName, score&gt;</td>
+      </tr>
+      <tr>
+        <td style="padding: 4px 8px; color: #fbbf24;">filterPlugins</td>
+        <td style="padding: 4px 8px;">Extensible filter chain</td>
+      </tr>
+    </table>
+  </div>
+
+  <div style="flex: 1;">
+    <div class="mockup">
+      <div class="mockup-header">ControllerManagerActor</div>
+      <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.7; padding: 16px;">
+<pre style="margin:0; color: #e2e8f0;">
+<span style="color: #60a5fa;">States:</span>
+  watching · reconciling · updating
+  error
+
+<span style="color: #60a5fa;">Transitions:</span>
+
+watching ──[POD_CREATED]──→ reconciling
+watching ──[POD_UPDATED]──→ reconciling
+watching ──[POD_FAILED]──→ reconciling
+  │
+  ▼
+reconciling ──[diff > 0]──→ updating
+  │ calculate desired vs actual
+  │ for each managed controller:
+  │   compute diff
+  │   generate CREATE/DELETE actions
+  │
+reconciling ──[diff = 0]──→ watching
+  │ nothing to do
+  │
+  ▼
+updating ──[UPDATE_DONE]──→ watching
+  │ publish CREATE_POD / DELETE_POD
+  │ for each diff action
+  │
+updating ──[UPDATE_FAIL]──→ error
+  │
+<span style="color: #60a5fa;">Operator Chain (BFS):</span>
+watching ──[CRD_ADDED]──→ reconciling
+  │ dispatch to matching Operator
+  │ new resources trigger next
+  │ controller in chain (depth ≤ 3)
+  │
+  │ e.g. Deployment → ReplicaSet
+  │      → Pod (chain reconcile)
+  │
+<span style="color: #60a5fa;">Error Recovery:</span>
+error ──[TICK]──→ watching
+  │ backoff, re-watch
+</pre>
+      </div>
+    </div>
+
+    <h4 style="margin-top: 12px;">Managed Controllers</h4>
+    <div style="font-size: 13px;">
+      <p>Each built-in controller (Deployment, ReplicaSet, DaemonSet, Job, CronJob) is a <strong>strategy object</strong> inside ControllerManagerActor, not a separate Actor.</p>
+      <p>This mirrors real K8s: one controller-manager process runs multiple controller loops.</p>
+      <p style="color: #fbbf24;">Custom operators from PluginEditor become additional strategy objects registered at runtime.</p>
+    </div>
+  </div>
+</div>

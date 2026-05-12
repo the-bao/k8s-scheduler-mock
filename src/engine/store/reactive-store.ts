@@ -64,4 +64,14 @@ export class ReactiveStore {
     }
     this.notify()
   }
+
+  clear(): void {
+    this.state = {
+      actors: {},
+      pods: {},
+      nodes: {},
+      events: [],
+    }
+    this.notify()
+  }
 }

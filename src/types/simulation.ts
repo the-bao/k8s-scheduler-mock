@@ -1,5 +1,28 @@
 // src/types/simulation.ts
 
+// Pod and Node object types for scheduler
+
+export interface PodObject {
+  name: string
+  namespace: string
+  nodeName: string | null
+  phase: string
+  conditions: unknown[]
+  spec: {
+    containers: unknown[]
+    resources: Record<string, unknown>
+    [key: string]: unknown
+  }
+  [key: string]: unknown
+}
+
+export interface NodeObject {
+  name: string
+  labels: Record<string, string>
+  allocatable: { cpu: number; memory: number }
+  [key: string]: unknown
+}
+
 export type Phase = 'submit' | 'controller' | 'operator' | 'scheduling' | 'kubelet' | 'completed'
 
 export type ComponentType =

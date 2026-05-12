@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import yaml from 'js-yaml'
-import { useSimulationStore } from '../../store/simulation-store'
 import type { PluginConfig, OperatorConfig } from '../../types/simulation'
 
 const defaultPluginOperatorYaml = `apiVersion: sim.k8s.io/v1
@@ -98,8 +97,16 @@ ui:
   position: right
 `
 
-export function PluginEditor({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { plugins, addPlugin, removePlugin, operators, addOperator, removeOperator } = useSimulationStore()
+interface PluginEditorProps {
+  addPlugin: (plugin: PluginConfig) => void
+  removePlugin: (name: string) => void
+  addOperator: (operator: OperatorConfig) => void
+  removeOperator: (name: string) => void
+  plugins: PluginConfig[]
+  operators: OperatorConfig[]
+}
+
+export function PluginEditor({ addPlugin, removePlugin, addOperator, removeOperator, plugins, operators, open, onClose }: PluginEditorProps & { open: boolean; onClose: () => void }) {
   const [tab, setTab] = useState<'plugin' | 'operator'>('plugin')
   const [yamlText, setYamlText] = useState(defaultPluginOperatorYaml)
   const [error, setError] = useState('')

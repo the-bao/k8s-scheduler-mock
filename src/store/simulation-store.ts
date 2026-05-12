@@ -12,16 +12,11 @@ import type {
   CustomResource,
 } from '../types/simulation'
 import {
-  generateMessages,
   getDefaultNodes,
   getDefaultResources,
 } from '../engine/simulation'
-import { DeploymentController } from '../engine/operators/deployment'
-import { ReplicaSetController } from '../engine/operators/replicaset'
-import { DaemonSetController } from '../engine/operators/daemonset'
-import { JobController } from '../engine/operators/job'
-import { CronJobController } from '../engine/operators/cronjob'
 
+// Operators removed - loadBuiltinOperators is now a stub
 interface SimulationState {
   status: SimulationStatus
   messages: SimMessage[]
@@ -65,10 +60,9 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   customResources: {},
   breakpoints: [],
 
-  startSimulation(podSpec, scenario) {
+  startSimulation(_podSpec, _scenario) {
     const plugins = get().plugins
     const operators = get().operators
-    const messages = generateMessages(podSpec, plugins, scenario, operators)
 
     // Build node list: builtins + plugin nodes + operator nodes
     const pluginNodes: SimNode[] = plugins.map((p) => ({
@@ -89,7 +83,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
     set({
       status: 'running',
-      messages,
+      messages: [],
       currentIndex: -1,
       nodes: [...getDefaultNodes(), ...pluginNodes, ...operatorNodes],
       resources: getDefaultResources(),
@@ -155,16 +149,8 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   },
 
   loadBuiltinOperators() {
-    set((state) => ({
-      operators: [
-        ...state.operators,
-        new DeploymentController().config,
-        new ReplicaSetController().config,
-        new DaemonSetController().config,
-        new JobController().config,
-        new CronJobController().config,
-      ],
-    }))
+    // Built-in operators are now managed by ControllerManagerActor
+    // This is a stub for backward compatibility
   },
 
   toggleBreakpoint(messageId) {

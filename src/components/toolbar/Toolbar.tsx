@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { useSimulationStore } from '../../store/simulation-store'
 import { scenarios } from '../../data/scenarios'
+import type { Simulation } from '../../engine/simulation-fsm'
+import type { SimulationStatus } from '../../types/simulation'
 
 const resourceTypeLabels: Record<string, string> = {
   Pod: 'Pod Scenarios',
@@ -9,17 +10,20 @@ const resourceTypeLabels: Record<string, string> = {
   Job: 'Job Scenarios',
 }
 
-export function Toolbar() {
-  const { startSimulation, status, reset, loadBuiltinOperators } = useSimulationStore()
+interface ToolbarProps {
+  sim: Pick<Simulation, 'getStatus' | 'startSimulation' | 'reset' | 'loadBuiltinOperators'>
+}
+
+export function Toolbar({ sim }: ToolbarProps) {
   const [selectedScenario, setSelectedScenario] = useState('normal')
 
   const handleStart = () => {
     const scenario = scenarios.find(s => s.id === selectedScenario)
     if (scenario) {
       if (scenario.operators && scenario.operators.length > 0) {
-        loadBuiltinOperators()
+        sim.loadBuiltinOperators()
       }
-      startSimulation(scenario.podYaml, scenario)
+      sim.startSimulation(scenario.podYaml, scenario)
     }
   }
 
@@ -34,6 +38,8 @@ export function Toolbar() {
     acc[type].push(s)
     return acc
   }, {})
+
+  const status: SimulationStatus = sim.getStatus()
 
   return (
     <div className="flex items-center gap-4">
@@ -63,7 +69,7 @@ export function Toolbar() {
       </button>
 
       <button
-        onClick={reset}
+        onClick={sim.reset}
         className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-xs"
       >
         Reset

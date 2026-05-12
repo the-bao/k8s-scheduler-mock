@@ -1,0 +1,72 @@
+<h2>FSM Architecture Approaches</h2>
+<p class="subtitle">3 ways to organize the XState Actor network for K8s simulation</p>
+
+<div class="section">
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Peer Actor Network</h3>
+      <p>No central coordinator. Each component (api-server, etcd, scheduler, kubelet...) is an independent actor. Components send messages directly to each other, just like real K8s. The simulation phase emerges from message flow.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul>
+          <li>Most faithful to real K8s architecture</li>
+          <li>Components are truly independent and testable</li>
+          <li>Easy to add new components (just add an actor)</li>
+          <li>Naturally supports concurrent message flows</li>
+        </ul></div>
+        <div class="cons"><h4>Cons</h4><ul>
+          <li>Hardest to control playback (step-forward/backward)</li>
+          <li>Testing non-deterministic message ordering</li>
+          <li>No single source of truth for "what phase are we in"</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Hub-and-Spoke with API-Server as Hub</h3>
+      <p>API-Server actor acts as the message hub (like real K8s). All component communication goes through it. It routes messages and tracks phases. Other components (etcd, scheduler, kubelet) are spoke actors.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul>
+          <li>Mirrors real K8s API-Server as the communication hub</li>
+          <li>API-Server can track phase progression</li>
+          <li>Better playback control (messages flow through one point)</li>
+          <li>Clear message ordering and causality</li>
+        </ul></div>
+        <div class="cons"><h4>Cons</h4><ul>
+          <li>API-Server actor becomes complex (routing + state)</li>
+          <li>Not all K8s communication goes through API-Server (e.g., kubelet→CRI)</li>
+          <li>Slightly artificial for plugin-to-plugin messages</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Orchestrator + Component Actors</h3>
+      <p>A simulation orchestrator actor manages the overall flow (phases, playback). Component actors handle internal state (idle→processing→done/error). The orchestrator sends commands and collects results, components respond with events.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul>
+          <li>Best playback control — orchestrator drives step-by-step</li>
+          <li>Clear separation: orchestration vs component logic</li>
+          <li>Easy to implement pause/resume/jump-to</li>
+          <li>Phase transitions are explicit and testable</li>
+        </ul></div>
+        <div class="cons"><h4>Cons</h4><ul>
+          <li>Less "real" — real K8s has no orchestrator</li>
+          <li>Orchestrator can become a god object if not careful</li>
+          <li>Need careful boundary between orchestrator and component responsibilities</li>
+        </ul></div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<h3>Recommendation: Approach C</h3>
+<p>The orchestrator pattern gives the best balance for a <strong>visualization tool</strong>. Real K8s fidelity (Approach A) is less important than playback control and user experience. The orchestrator naturally maps to the existing timeline/playback UI.</p>

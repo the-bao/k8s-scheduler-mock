@@ -1,0 +1,74 @@
+<h2>Design Gap Analysis</h2>
+<p class="subtitle">Our approach vs. the k8s-fsm-engine-design document</p>
+
+<h3>What the document adds that we're missing</h3>
+
+<div class="options" data-multiselect>
+  <div class="option" data-choice="layers" onclick="toggleSelect(this)">
+    <div class="letter">1</div>
+    <div class="content">
+      <h3>5-Layer Architecture</h3>
+      <p>The document defines L1 (UserAction + TickClock) → L2 (MessageBus) → L3 (Actor Runtime) → L4 (K8s Domain) → L5 (View). Our 3-layer design (Actors + EventBus + Playback) is less granular.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="tick" onclick="toggleSelect(this)">
+    <div class="letter">2</div>
+    <div class="content">
+      <h3>TickClock</h3>
+      <p>Explicit time driver for health probes, retries, and periodic reconciles. We don't have this — our auto-play timer only controls playback speed, not simulated K8s time.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="etcd" onclick="toggleSelect(this)">
+    <div class="letter">3</div>
+    <div class="content">
+      <h3>EtcdStore (Simulated etcd)</h3>
+      <p>Dedicated in-memory etcd layer with version numbers. Currently our Zustand store conflates UI state and K8s resource state. Separating them is cleaner.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="history" onclick="toggleSelect(this)">
+    <div class="letter">4</div>
+    <div class="content">
+      <h3>EventHistory with Deterministic Replay</h3>
+      <p>Instead of snapshots, the document replays from initial state using recorded event sequence. More memory-efficient for long simulations. Same events → same state (determinism guarantee).</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="mailbox" onclick="toggleSelect(this)">
+    <div class="letter">5</div>
+    <div class="content">
+      <h3>Formal Actor Base Class with Mailbox</h3>
+      <p>Each Actor has a mailbox queue with sequential draining. Prevents re-entrant processing. XState actors handle this internally but less transparently.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="registry" onclick="toggleSelect(this)">
+    <div class="letter">6</div>
+    <div class="content">
+      <h3>ActorRegistry</h3>
+      <p>Lookup actors by ID, support multiple instances of same type (e.g., KubeletActor per node). We didn't design this explicitly.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="guards" onclick="toggleSelect(this)">
+    <div class="letter">7</div>
+    <div class="content">
+      <h3>Declarative Transition Table with Guards</h3>
+      <p>Plain array of {from, event, to, guard?, action?} rules. Extremely readable. XState uses a different DSL (object-based) which is more verbose for simple cases.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="reactive" onclick="toggleSelect(this)">
+    <div class="letter">8</div>
+    <div class="content">
+      <h3>ReactiveStore (useSyncExternalStore)</h3>
+      <p>Direct React 18 integration without Zustand dependency. Simpler, standard React API. We planned to keep Zustand as the view state bridge.</p>
+    </div>
+  </div>
+</div>
+
+<h3 style="margin-top: 32px;">Key Question</h3>
+<p>The document's custom <strong>FSMEngine is ~20 lines of code</strong>. It's purpose-built, zero-dependency, and does exactly what this project needs. Meanwhile, <strong>XState</strong> is a full-featured library (32KB min) with its own concepts and learning curve.</p>
+<p style="margin-top: 8px;">Should we reconsider our XState choice?</p>

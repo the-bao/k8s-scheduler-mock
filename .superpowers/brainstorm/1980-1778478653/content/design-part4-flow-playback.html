@@ -1,0 +1,122 @@
+<h2>Part 4: Interaction Flow & PlaybackController</h2>
+<p class="subtitle">How actors collaborate through Event Bus + how playback works</p>
+
+<div class="mockup">
+  <div class="mockup-header">Full Pod Lifecycle — Event Flow</div>
+  <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.8; padding: 20px;">
+<pre style="margin:0; color: #e2e8f0;">
+<span style="color: #94a3b8;">── Phase 1: Submit ──────────────────────────────────────────</span>
+
+UserAction ──── USER_APPLY ────→ <span style="color: #60a5fa;">[API-Server]</span> idle → validating → storing
+                                  │ WRITE_REQUEST
+                                  ▼
+                                <span style="color: #34d399;">[Etcd]</span> idle → writing → idle
+                                  │ WATCH_EVENT (key prefix: /registry/pods/*)
+                                  ▼
+                                <span style="color: #60a5fa;">[API-Server]</span> → broadcasting → idle
+                                  │ CREATE_POD_RESPONSE → User
+                                  │ POD_CREATED (broadcast)
+
+<span style="color: #94a3b8;">── Phase 2: Controller ─────────────────────────────────────</span>
+
+                                <span style="color: #fbbf24;">[Controller-Mgr]</span> watching → reconciling
+                                  │ Watch triggered by etcd event
+                                  │ For non-Pod resources: BFS chain reconcile
+                                  │   Deployment → ReplicaSet → Pod
+                                  │ For Pod: check if operator plugins apply
+                                  │ If diff > 0 → updating → watching
+                                  │ publish CREATE_POD per diff action
+
+<span style="color: #94a3b8;">── Phase 3: Scheduling ─────────────────────────────────────</span>
+
+                                <span style="color: #f472b6;">[Scheduler]</span> idle → filtering
+                                  │ Subscribe to POD_PENDING
+                                  │ Filter nodes by resource fit
+                                  │ candidates > 0 → scoring → binding
+                                  │
+                                  │ BIND_REQUEST
+                                  ▼
+                                <span style="color: #60a5fa;">[API-Server]</span> idle → updating → idle
+                                  │ Write pod.nodeName to etcd
+                                  │
+                                  ▼
+                                <span style="color: #34d399;">[Etcd]</span> idle → writing → idle
+                                  │ WATCH_EVENT → Kubelet (node match)
+
+<span style="color: #94a3b8;">── Phase 4: Kubelet ────────────────────────────────────────</span>
+
+                                <span style="color: #a78bfa;">[Kubelet:node-1]</span> idle → creating_sandbox
+                                  │ CREATE_SANDBOX → <span style="color: #fb923c;">[CRI]</span>
+                                  ▼
+                                settingup_network
+                                  │ CNI_SETUP → <span style="color: #4ade80;">[CNI]</span>
+                                  ▼
+                                mounting_volumes
+                                  │ CSI_STAGE + CSI_PUBLISH → <span style="color: #38bdf8;">[CSI]</span>
+                                  ▼
+                                pulling_image
+                                  │ PULL_IMAGE → <span style="color: #fb923c;">[CRI]</span>
+                                  ▼
+                                starting_container
+                                  │ START_CONTAINER → <span style="color: #fb923c;">[CRI]</span>
+                                  ▼
+                                running
+                                  │ POD_RUNNING → API-Server → Etcd
+                                  │
+                                  ▼
+                                <span style="color: #60a5fa;">[API-Server]</span> UPDATE_STATUS → <span style="color: #34d399;">[Etcd]</span>
+</pre>
+  </div>
+</div>
+
+<div style="margin-top: 24px;">
+  <div class="mockup">
+    <div class="mockup-header">PlaybackController FSM</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.7; padding: 20px;">
+<pre style="margin:0; color: #e2e8f0;">
+<span style="color: #60a5fa;">States:</span> idle · running · paused · completed · stepping
+
+<span style="color: #60a5fa;">Transitions:</span>
+
+idle ──[PLAY]──→ running
+idle ──[STEP_FORWARD]──→ stepping
+idle ──[LOAD_SCENARIO]──→ idle
+  │ reset all actors, load scenario config
+
+running ──[TICK]──→ running
+  │ deliver next buffered event from EventBus
+  │ record snapshot for backward navigation
+  │ if no more events → completed
+  │
+running ──[PAUSE]──→ paused
+running ──[RESET]──→ idle
+
+paused ──[PLAY]──→ running
+paused ──[STEP_FORWARD]──→ stepping
+paused ──[STEP_BACKWARD]──→ stepping
+  │ restore previous snapshot
+paused ──[JUMP_TO(n)]──→ stepping
+  │ restore snapshot at index n
+paused ──[RESET]──→ idle
+
+stepping ──[DELIVERED]──→ paused
+  │ one event delivered, pause again
+
+completed ──[RESET]──→ idle
+completed ──[JUMP_TO(n)]──→ stepping
+
+<span style="color: #60a5fa;">Speed Control:</span>
+TICK interval = baseInterval / speed
+  speed: 0.5x → 2s per tick
+  speed: 1x   → 1s per tick
+  speed: 2x   → 500ms per tick
+  speed: 5x   → 200ms per tick
+
+<span style="color: #60a5fa;">Snapshot Strategy:</span>
+  Snapshot = { all actor states + EtcdStore data + event log index }
+  Taken after every event delivery
+  Max snapshots: 500 (ring buffer, oldest discarded)
+</pre>
+    </div>
+  </div>
+</div>
