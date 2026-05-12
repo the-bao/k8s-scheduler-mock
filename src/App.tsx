@@ -17,7 +17,7 @@ export default function App() {
     <div className="h-screen flex flex-col bg-gray-950 text-white">
       <div className="flex items-center gap-4 px-4 py-2 bg-gray-900 border-b border-gray-700">
         <h1 className="font-bold text-sm shrink-0">K8s Pod Lifecycle Visualizer</h1>
-        <Toolbar sim={sim} />
+        <Toolbar sim={sim} startSimulation={simResult.startSimulation} />
         <button
           onClick={() => setPluginEditorOpen(true)}
           className="px-3 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded text-xs shrink-0"

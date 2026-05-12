@@ -11,10 +11,11 @@ const resourceTypeLabels: Record<string, string> = {
 }
 
 interface ToolbarProps {
-  sim: Pick<Simulation, 'getStatus' | 'startSimulation' | 'reset' | 'loadBuiltinOperators'>
+  sim: Pick<Simulation, 'getStatus' | 'reset' | 'loadBuiltinOperators'>
+  startSimulation: (podYaml: Record<string, unknown>, scenario?: any) => void
 }
 
-export function Toolbar({ sim }: ToolbarProps) {
+export function Toolbar({ sim, startSimulation }: ToolbarProps) {
   const [selectedScenario, setSelectedScenario] = useState('normal')
 
   const handleStart = () => {
@@ -23,7 +24,7 @@ export function Toolbar({ sim }: ToolbarProps) {
       if (scenario.operators && scenario.operators.length > 0) {
         sim.loadBuiltinOperators()
       }
-      sim.startSimulation(scenario.podYaml, scenario)
+      startSimulation(scenario.podYaml, scenario)
     }
   }
 
