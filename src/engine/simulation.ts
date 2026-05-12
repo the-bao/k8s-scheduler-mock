@@ -1,133 +1,85 @@
-// src/engine/simulation.ts
+import { MessageBus } from './bus/message-bus'
+import { EventHistory } from './bus/event-history'
+import { PlaybackController } from './bus/playback-controller'
+import { TickClock } from './trigger/tick-clock'
+import { ActorRegistry } from './fsm/registry'
+import { EtcdStore } from './store/etcd-store'
+import { ReactiveStore } from './store/reactive-store'
+import { EtcdActor } from './actors/etcd-actor'
+import { APIServerActor } from './actors/api-server-actor'
+import { SchedulerActor } from './actors/scheduler-actor'
+import { ControllerManagerActor } from './actors/controller-manager-actor'
+import { CRIActor } from './actors/cri-actor'
+import { CNIActor } from './actors/cni-actor'
+import { CSIActor } from './actors/csi-actor'
+import { KubeletActor } from './actors/kubelet-actor'
+import type { SimEvent } from './fsm/types'
 
-import type {
-  SimMessage,
-  SimNode,
-  ResourceStore,
-  NodeResource,
-  PluginConfig,
-  Scenario,
-  OperatorConfig,
-} from '../types/simulation'
+export class Simulation {
+  readonly bus: MessageBus
+  readonly history: EventHistory
+  readonly playback: PlaybackController
+  readonly clock: TickClock
+  readonly registry: ActorRegistry
+  readonly store: EtcdStore
+  readonly reactiveStore: ReactiveStore
 
-import { resetMsgCounter, createTimestampFactory } from './types'
-import { generateSubmitPhase } from './phases/submit'
-import { generateControllerPhase } from './phases/controller'
-import { generateSchedulingPhase } from './phases/scheduling'
-import { generateKubeletPhase } from './phases/kubelet'
-import { generateOperatorPhase } from './phases/operator'
-import { createRegistryWithBuiltins } from './operators'
+  constructor(nodeNames: string[] = ['node-1', 'node-2']) {
+    // Initialize all layers
+    this.bus = new MessageBus()
+    this.history = new EventHistory()
+    this.playback = new PlaybackController()
+    this.clock = new TickClock()
+    this.store = new EtcdStore()
+    this.reactiveStore = new ReactiveStore()
+    this.registry = new ActorRegistry()
 
-// ── Builtin nodes ─────────────────────────────────────────────────────
-const builtinComponents = [
-  'api-server',
-  'etcd',
-  'controller-manager',
-  'scheduler',
-  'kubelet',
-  'cri',
-  'cni',
-  'csi',
-] as const
+    // Wire MessageBus to EventHistory - record all events
+    const originalPublish = this.bus.publish.bind(this.bus)
+    this.bus.publish = (event: SimEvent) => {
+      originalPublish(event)
+      this.history.record(event)
+      this.reactiveStore.appendEvent(event)
+    }
 
-const builtinNodes: SimNode[] = builtinComponents.map((c) => ({
-  id: c,
-  type: 'builtin',
-  component: c,
-  label: c,
-  state: 'idle',
-}))
+    // Create and register all actors
+    this.registry.register(new EtcdActor('etcd', this.store))
+    this.registry.register(new APIServerActor('api-server', this.store))
+    this.registry.register(new SchedulerActor('scheduler', this.reactiveStore))
+    this.registry.register(new ControllerManagerActor('controller-manager'))
+    this.registry.register(new CRIActor())
+    this.registry.register(new CNIActor())
+    this.registry.register(new CSIActor())
 
-// ── Default node resources ────────────────────────────────────────────
-const defaultNodeResources: NodeResource[] = [
-  {
-    name: 'node-1',
-    cpu: { capacity: 8, allocatable: 8, used: 0 },
-    memory: { capacity: 32, allocatable: 32, used: 0 },
-    labels: { 'kubernetes.io/os': 'linux' },
-  },
-  {
-    name: 'node-2',
-    cpu: { capacity: 4, allocatable: 4, used: 0 },
-    memory: { capacity: 16, allocatable: 16, used: 0 },
-    labels: { 'kubernetes.io/os': 'linux' },
-  },
-]
-
-// ── Message generator ─────────────────────────────────────────────────
-export function generateMessages(
-  podSpec: Record<string, unknown>,
-  plugins: PluginConfig[],
-  scenario?: Scenario,
-  operators?: OperatorConfig[],
-): SimMessage[] {
-  resetMsgCounter()
-  const { t } = createTimestampFactory()
-
-  const meta = podSpec.metadata as Record<string, unknown> | undefined
-  const podName = String(meta?.name ?? 'unknown-pod')
-  const namespace = String(meta?.namespace ?? 'default')
-  const phaseInput = { podSpec, podName, namespace, t }
-
-  const messages: SimMessage[] = [
-    ...generateSubmitPhase(phaseInput),
-    ...generateControllerPhase({ ...phaseInput, plugins }),
-  ]
-
-  // Operator phase — only for CRD resources (not plain Pods)
-  const resourceKind = String(podSpec.kind ?? '')
-  const isPod = resourceKind === 'Pod' || !resourceKind
-  if (!isPod) {
-    const registry = createRegistryWithBuiltins()
-    const operatorMessages = generateOperatorPhase({
-      ...phaseInput,
-      operators: operators ?? [],
-      customResources: {},
-      nodeNames: defaultNodeResources.map((n) => n.name),
-    }, registry)
-    messages.push(...operatorMessages)
-  }
-
-  messages.push(
-    ...generateSchedulingPhase({ ...phaseInput, nodeResources: defaultNodeResources }),
-    ...generateKubeletPhase(phaseInput),
-  )
-
-  // ── Apply scenario error injections ──────────────────────────────────
-  if (scenario?.injectErrors) {
-    for (const injection of scenario.injectErrors) {
-      const target = messages.find(
-        (m) => m.phase === injection.phase && m.type === injection.messageType,
-      )
-      if (target) {
-        target.error = injection.error
-      }
+    // One KubeletActor per node
+    for (const nodeName of nodeNames) {
+      this.registry.register(new KubeletActor(`kubelet:${nodeName}`, this.reactiveStore))
     }
   }
 
-  return messages
-}
-
-// ── Accessors ─────────────────────────────────────────────────────────
-export function getDefaultNodes(): SimNode[] {
-  return builtinNodes.map((n) => ({ ...n }))
-}
-
-export function getDefaultResources(): ResourceStore {
-  const nodes: ResourceStore['nodes'] = {}
-  for (const nr of defaultNodeResources) {
-    nodes[nr.name] = {
-      ...nr,
-      cpu: { ...nr.cpu },
-      memory: { ...nr.memory },
-      labels: { ...nr.labels },
-    }
+  // Control methods
+  play(): void {
+    this.playback.play()
   }
-  return {
-    pods: {},
-    nodes,
-    pvcs: {},
-    configmaps: {},
-    customResources: {},
+
+  pause(): void {
+    this.playback.pause()
+  }
+
+  stepForward(): void {
+    this.playback.stepForward()
+  }
+
+  reset(): void {
+    this.playback.reset()
+  }
+
+  setSpeed(speed: number): void {
+    this.playback.setSpeed(speed)
+    this.clock.setSpeed(speed)
+  }
+
+  getState() {
+    return this.playback.getState()
   }
 }
