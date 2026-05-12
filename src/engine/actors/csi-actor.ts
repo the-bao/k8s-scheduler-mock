@@ -28,7 +28,7 @@ export class CSIActor extends Actor<'idle' | 'processing', string> {
     }
   }
 
-  protected onTransition(state: 'idle' | 'processing', event: SimEvent): void {
+  protected onTransition(_state: 'idle' | 'processing', _event: SimEvent): void {
     // CSI operations are processed
   }
 }

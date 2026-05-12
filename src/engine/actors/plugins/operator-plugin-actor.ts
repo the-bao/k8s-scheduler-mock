@@ -10,10 +10,13 @@ export interface ReconcileRule {
 }
 
 export class OperatorPluginActor extends Actor<'idle' | 'processing', string> {
+  private watchedResources: string[]
+  private reconcileRules: ReconcileRule[]
+
   constructor(
     id: string,
-    private watchedResources: string[],
-    private reconcileRules: ReconcileRule[]
+    watchedResources: string[],
+    reconcileRules: ReconcileRule[]
   ) {
     const fsm = createXStateMachine<OperatorPluginState>({
       initial: 'idle',
@@ -25,6 +28,8 @@ export class OperatorPluginActor extends Actor<'idle' | 'processing', string> {
       },
     })
     super(id, fsm)
+    this.watchedResources = watchedResources
+    this.reconcileRules = reconcileRules
   }
 
   protected makeCtx(): ActorContext {

@@ -7,7 +7,7 @@ export class MessageBus {
     this.handlers.get(event.type)?.forEach(h => h(event))
   }
 
-  route(to: string, event: SimEvent): void {
+  route(_to: string, event: SimEvent): void {
     // Targeted delivery — same as publish for now
     this.publish(event)
   }

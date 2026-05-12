@@ -30,7 +30,7 @@ export class KubeletActor extends Actor<KubeletState, string> {
     errorBackoffUntil: 0,
   }
 
-  constructor(id: string, private store: ReactiveStore) {
+  constructor(id: string, store: ReactiveStore) {
     const fsm = createXStateMachine<KubeletState>({
       initial: 'idle',
       states: {
@@ -78,7 +78,7 @@ export class KubeletActor extends Actor<KubeletState, string> {
     return {
       actorId: this.id,
       bus: { publish: () => {}, route: () => {} },
-      store: this.store,
+      store: this.context.store,
     }
   }
 

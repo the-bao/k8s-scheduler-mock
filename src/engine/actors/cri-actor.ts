@@ -29,7 +29,7 @@ export class CRIActor extends Actor<'idle' | 'processing', string> {
     }
   }
 
-  protected onTransition(state: 'idle' | 'processing', event: SimEvent): void {
+  protected onTransition(_state: 'idle' | 'processing', _event: SimEvent): void {
     // CRI operations are processed
   }
 }

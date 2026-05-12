@@ -1,7 +1,11 @@
-import type { MessageBusLike, SimEvent } from '../../fsm/types'
+import type { MessageBusLike, SimEvent } from '../fsm/types'
 
 export class UserAction {
-  constructor(private bus: MessageBusLike) {}
+  private bus: MessageBusLike
+
+  constructor(bus: MessageBusLike) {
+    this.bus = bus
+  }
 
   dispatch(action: { type: 'APPLY' | 'DELETE' | 'SCALE'; manifest: Record<string, unknown> }): void {
     const eventTypeMap = {

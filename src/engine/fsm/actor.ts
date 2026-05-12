@@ -1,7 +1,7 @@
 import type { SimEvent, ActorContext } from './types'
 import type { FSMachine } from './xstate-adapter'
 
-export abstract class Actor<S extends string, E extends string> {
+export abstract class Actor<S extends string, _E extends string> {
   readonly id: string
   private mailbox: SimEvent[] = []
   private draining = false

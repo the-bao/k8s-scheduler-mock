@@ -25,7 +25,7 @@ export class CNIActor extends Actor<'idle' | 'processing', string> {
     }
   }
 
-  protected onTransition(state: 'idle' | 'processing', event: SimEvent): void {
+  protected onTransition(_state: 'idle' | 'processing', _event: SimEvent): void {
     // CNI operations are processed
   }
 }

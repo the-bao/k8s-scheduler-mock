@@ -1,8 +1,10 @@
-import { createMachine, createActor, type Actor, type Snapshot } from 'xstate'
+import { createMachine, createActor } from 'xstate'
+
+import type { SimEvent } from './types'
 
 export interface FSMachine<S extends string> {
   getState(): S
-  send(event: unknown): S | null
+  send(event: SimEvent): S
 }
 
 export function createXStateMachine<S extends string>(
@@ -19,13 +21,13 @@ export function createXStateMachine<S extends string>(
 
   return {
     getState: () => {
-      const snapshot = actor.getSnapshot() as Snapshot<{ value: S }>
-      return snapshot.value
+      const snapshot = actor.getSnapshot()
+      return snapshot.value as S
     },
     send: (event: unknown) => {
       actor.send(event as any)
-      const snapshot = actor.getSnapshot() as Snapshot<{ value: S }>
-      return snapshot.value
+      const snapshot = actor.getSnapshot()
+      return snapshot.value as S
     },
   }
 }

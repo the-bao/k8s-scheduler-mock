@@ -4,7 +4,9 @@ import type { ActorContext, SimEvent } from '../fsm/types'
 import type { EtcdStore } from '../store/etcd-store'
 
 export class APIServerActor extends Actor<'idle' | 'validating' | 'storing' | 'broadcasting' | 'updating', string> {
-  constructor(id: string, private store: EtcdStore) {
+  private store: EtcdStore
+
+  constructor(id: string, store: EtcdStore) {
     const fsm = createXStateMachine({
       initial: 'idle',
       states: {
@@ -22,6 +24,7 @@ export class APIServerActor extends Actor<'idle' | 'validating' | 'storing' | 'b
       },
     })
     super(id, fsm)
+    this.store = store
   }
 
   protected makeCtx(): ActorContext {
@@ -32,7 +35,7 @@ export class APIServerActor extends Actor<'idle' | 'validating' | 'storing' | 'b
     }
   }
 
-  protected onTransition(state: 'idle' | 'validating' | 'storing' | 'broadcasting' | 'updating', event: SimEvent): void {
+  protected onTransition(_state: 'idle' | 'validating' | 'storing' | 'broadcasting' | 'updating', _event: SimEvent): void {
     // Handle state transitions
   }
 }

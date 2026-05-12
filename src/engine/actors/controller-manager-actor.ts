@@ -65,7 +65,7 @@ export class ControllerManagerActor extends Actor<CtrlState, string> {
     }
   }
 
-  protected onTransition(state: CtrlState, event: SimEvent): void {
+  protected onTransition(_state: CtrlState, _event: SimEvent): void {
     // Controller reconciliation logic would go here
     // For now, just handle state transitions
   }

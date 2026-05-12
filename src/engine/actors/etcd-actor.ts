@@ -4,7 +4,9 @@ import type { ActorContext, SimEvent } from '../fsm/types'
 import type { EtcdStore } from '../store/etcd-store'
 
 export class EtcdActor extends Actor<'idle' | 'writing' | 'reading', string> {
-  constructor(id: string, private store: EtcdStore) {
+  private store: EtcdStore
+
+  constructor(id: string, store: EtcdStore) {
     const fsm = createXStateMachine({
       initial: 'idle',
       states: {
@@ -19,6 +21,7 @@ export class EtcdActor extends Actor<'idle' | 'writing' | 'reading', string> {
       },
     })
     super(id, fsm)
+    this.store = store
   }
 
   protected makeCtx(): ActorContext {
@@ -29,7 +32,7 @@ export class EtcdActor extends Actor<'idle' | 'writing' | 'reading', string> {
     }
   }
 
-  protected onTransition(state: 'idle' | 'writing' | 'reading', event: SimEvent): void {
+  protected onTransition(_state: 'idle' | 'writing' | 'reading', event: SimEvent): void {
     if (event.type === 'WRITE_REQUEST') {
       const payload = event.payload as { key: string; value: unknown }
       this.store.set(payload.key, payload.value)

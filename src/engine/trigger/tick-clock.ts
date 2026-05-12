@@ -1,10 +1,12 @@
+import type { SimEvent } from '../fsm/types'
+
 export class TickClock {
   private running = false
   private speed = 1
   private intervalId: ReturnType<typeof setInterval> | null = null
-  private handler: (() => void) | null = null
+  private handler: ((event: SimEvent) => void) | null = null
 
-  start(handler: () => void): void {
+  start(handler: (event: SimEvent) => void): void {
     if (this.running) return
     this.running = true
     this.handler = handler

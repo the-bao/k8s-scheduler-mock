@@ -24,7 +24,7 @@ export class SchedulerActor extends Actor<SchedState, string> {
     errorBackoffUntil: 0,
   }
 
-  constructor(id: string, private store: ReactiveStore) {
+  constructor(id: string, store: ReactiveStore) {
     const fsm = createXStateMachine<SchedState>({
       initial: 'idle',
       states: {
@@ -58,7 +58,7 @@ export class SchedulerActor extends Actor<SchedState, string> {
     return {
       actorId: this.id,
       bus: { publish: () => {}, route: () => {} },
-      store: this.store,
+      store: this.context.store,
     }
   }
 
@@ -91,7 +91,7 @@ export class SchedulerActor extends Actor<SchedState, string> {
     }
   }
 
-  private handleFiltering(event: SimEvent): void {
+  private handleFiltering(_event: SimEvent): void {
     // Auto-transition guard: if candidates > 0 go to scoring, else idle
     // The actual filtering logic would happen here in a real implementation
     // For now, auto-transition to scoring (filter passes all candidates)
@@ -100,7 +100,7 @@ export class SchedulerActor extends Actor<SchedState, string> {
     }
   }
 
-  private handleScoring(event: SimEvent): void {
+  private handleScoring(_event: SimEvent): void {
     // Auto-transition guard: if best score > 0 go to binding, else idle
     // Auto-transition to binding (score passes - in real impl, would check scores)
     if (this.context.scores.size === 0) {
