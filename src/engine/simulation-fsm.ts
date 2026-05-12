@@ -49,34 +49,89 @@ export class Simulation {
     this.reactiveStore = new ReactiveStore()
     this.registry = new ActorRegistry()
 
-    // Wire MessageBus to record events
+    // Wire actors to the bus FIRST, before the publish override
+    const etcdActor = new EtcdActor('etcd', this.store)
+    const apiServerActor = new APIServerActor('api-server', this.store)
+    const schedulerActor = new SchedulerActor('scheduler', this.reactiveStore)
+    const controllerManagerActor = new ControllerManagerActor('controller-manager')
+    const criActor = new CRIActor()
+    const cniActor = new CNIActor()
+    const csiActor = new CSIActor()
+
+    // Subscribe actors to relevant event types
+    etcdActor.subscribe(this.bus, 'etcd')
+    apiServerActor.subscribe(this.bus, 'api-server')
+    schedulerActor.subscribe(this.bus, 'scheduler')
+    controllerManagerActor.subscribe(this.bus, 'controller-manager')
+    criActor.subscribe(this.bus, 'cri')
+    cniActor.subscribe(this.bus, 'cni')
+    csiActor.subscribe(this.bus, 'csi')
+
+    // Register all actors
+    this.registry.register(etcdActor)
+    this.registry.register(apiServerActor)
+    this.registry.register(schedulerActor)
+    this.registry.register(controllerManagerActor)
+    this.registry.register(criActor)
+    this.registry.register(cniActor)
+    this.registry.register(csiActor)
+
+    for (const nodeName of nodeNames) {
+      const kubeletActor = new KubeletActor(`kubelet:${nodeName}`, this.reactiveStore)
+      kubeletActor.subscribe(this.bus, `kubelet:${nodeName}`)
+      this.registry.register(kubeletActor)
+    }
+
+    // Wire MessageBus to record events (after actors are subscribed)
+    // This also converts events to SimMessages for UI display
     const originalPublish = this.bus.publish.bind(this.bus)
     this.bus.publish = (event: SimEvent) => {
       originalPublish(event)
       this.history.record(event)
       this.reactiveStore.appendEvent(event)
-    }
 
-    // Register all actors
-    this.registry.register(new EtcdActor('etcd', this.store))
-    this.registry.register(new APIServerActor('api-server', this.store))
-    this.registry.register(new SchedulerActor('scheduler', this.reactiveStore))
-    this.registry.register(new ControllerManagerActor('controller-manager'))
-    this.registry.register(new CRIActor())
-    this.registry.register(new CNIActor())
-    this.registry.register(new CSIActor())
-
-    for (const nodeName of nodeNames) {
-      this.registry.register(new KubeletActor(`kubelet:${nodeName}`, this.reactiveStore))
+      // Convert SimEvent to SimMessage for UI
+      const msg: SimMessage = {
+        id: `msg-${this.messages.length}`,
+        from: event.from || '',
+        to: event.to || '',
+        phase: this.inferPhase(event),
+        type: event.type,
+        request: event.payload as Record<string, unknown> || {},
+        latency: 0,
+        timestamp: event.ts || Date.now(),
+      }
+      this.messages.push(msg)
+      // Add to playback controller for stepping
+      this.playback.addEvent(event)
     }
 
     this.nodes = getDefaultNodes()
   }
 
-  start(_podSpec: Record<string, unknown>, _scenario?: Scenario): void {
+  private inferPhase(event: SimEvent): import('../types/simulation').Phase {
+    const type = event.type
+    if (type.startsWith('CREATE') || type.startsWith('WRITE')) return 'submit'
+    if (type.startsWith('WATCH') || type === 'POD_CREATED') return 'controller'
+    if (type.startsWith('RECONCILE') || type.startsWith('OPERATOR')) return 'operator'
+    if (type.startsWith('FILTER') || type.startsWith('SCORE') || type.startsWith('BIND')) return 'scheduling'
+    if (type.startsWith('POD_') || type.startsWith('SANDBOX') || type.startsWith('CNI') || type.startsWith('CSI') || type.startsWith('PULL') || type.startsWith('START')) return 'kubelet'
+    return 'completed'
+  }
+
+  start(podSpec: Record<string, unknown>, scenario?: Scenario): void {
     this.messages = []
     this.status = 'running'
     this.playback.play()
+
+    // Inject the initial USER_APPLY event to trigger the simulation
+    const applyEvent: SimEvent = {
+      type: 'USER_APPLY',
+      from: 'user',
+      payload: { pod: podSpec, scenario },
+      ts: Date.now(),
+    }
+    this.bus.publish(applyEvent)
   }
 
   startSimulation(podSpec: Record<string, unknown>, scenario?: Scenario): void {

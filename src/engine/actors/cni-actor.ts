@@ -1,6 +1,7 @@
 import { Actor } from '../fsm/actor'
 import { createXStateMachine } from '../fsm/xstate-adapter'
 import type { ActorContext, SimEvent } from '../fsm/types'
+import type { MessageBus } from '../bus/message-bus'
 
 export type CNIState = 'idle' | 'processing'
 
@@ -16,6 +17,10 @@ export class CNIActor extends Actor<'idle' | 'processing', string> {
       },
     })
     super(id, fsm)
+  }
+
+  subscribe(bus: MessageBus, _channel: string): void {
+    bus.subscribe('cni', (e) => this.receive(e))
   }
 
   protected makeCtx(): ActorContext {

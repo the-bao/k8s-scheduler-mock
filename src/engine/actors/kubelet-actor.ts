@@ -3,6 +3,7 @@ import { createXStateMachine } from '../fsm/xstate-adapter'
 import type { ActorContext, SimEvent } from '../fsm/types'
 import type { ReactiveStore } from '../store/reactive-store'
 import type { PodObject } from '../../types/simulation'
+import type { MessageBus } from '../bus/message-bus'
 
 type KubeletState =
   | 'idle'
@@ -72,6 +73,11 @@ export class KubeletActor extends Actor<KubeletState, string> {
     })
     super(id, fsm)
     this.context.store = store
+  }
+
+  subscribe(bus: MessageBus, _channel: string): void {
+    bus.subscribe('kubelet', (e) => this.receive(e))
+    bus.subscribe('POD_BOUND', (e) => this.receive(e))
   }
 
   protected makeCtx(): ActorContext {

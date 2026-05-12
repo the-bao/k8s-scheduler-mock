@@ -3,6 +3,7 @@ import { createXStateMachine } from '../fsm/xstate-adapter'
 import type { ActorContext, SimEvent } from '../fsm/types'
 import type { ReactiveStore } from '../store/reactive-store'
 import type { PodObject, NodeObject } from '../../types/simulation'
+import type { MessageBus } from '../bus/message-bus'
 
 type SchedState = 'idle' | 'filtering' | 'scoring' | 'binding' | 'error'
 
@@ -52,6 +53,11 @@ export class SchedulerActor extends Actor<SchedState, string> {
     })
     super(id, fsm)
     this.context.store = store
+  }
+
+  subscribe(bus: MessageBus, _channel: string): void {
+    bus.subscribe('scheduler', (e) => this.receive(e))
+    bus.subscribe('POD_PENDING', (e) => this.receive(e))
   }
 
   protected makeCtx(): ActorContext {

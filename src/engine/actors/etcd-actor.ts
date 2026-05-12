@@ -2,6 +2,7 @@ import { Actor } from '../fsm/actor'
 import { createXStateMachine } from '../fsm/xstate-adapter'
 import type { ActorContext, SimEvent } from '../fsm/types'
 import type { EtcdStore } from '../store/etcd-store'
+import type { MessageBus } from '../bus/message-bus'
 
 export class EtcdActor extends Actor<'idle' | 'writing' | 'reading', string> {
   private store: EtcdStore
@@ -22,6 +23,10 @@ export class EtcdActor extends Actor<'idle' | 'writing' | 'reading', string> {
     })
     super(id, fsm)
     this.store = store
+  }
+
+  subscribe(bus: MessageBus, _channel: string): void {
+    bus.subscribe('etcd', (e) => this.receive(e))
   }
 
   protected makeCtx(): ActorContext {

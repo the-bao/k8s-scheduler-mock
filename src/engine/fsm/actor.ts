@@ -1,5 +1,6 @@
 import type { SimEvent, ActorContext } from './types'
 import type { FSMachine } from './xstate-adapter'
+import type { MessageBus } from '../bus/message-bus'
 
 export abstract class Actor<S extends string, _E extends string> {
   readonly id: string
@@ -15,6 +16,10 @@ export abstract class Actor<S extends string, _E extends string> {
   receive(event: SimEvent): void {
     this.mailbox.push(event)
     if (!this.draining) this.drain()
+  }
+
+  subscribe(_bus: MessageBus, _channel: string): void {
+    // Override in subclasses to subscribe to specific event types
   }
 
   protected getState(): S {

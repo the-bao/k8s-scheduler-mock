@@ -1,6 +1,7 @@
 import { Actor } from '../fsm/actor'
 import { createXStateMachine } from '../fsm/xstate-adapter'
 import type { ActorContext, SimEvent } from '../fsm/types'
+import type { MessageBus } from '../bus/message-bus'
 
 type CtrlState = 'watching' | 'reconciling' | 'updating' | 'error'
 
@@ -51,6 +52,12 @@ export class ControllerManagerActor extends Actor<CtrlState, string> {
       },
     })
     super(id, fsm)
+  }
+
+  subscribe(bus: MessageBus, _channel: string): void {
+    bus.subscribe('controller-manager', (e) => this.receive(e))
+    bus.subscribe('POD_CREATED', (e) => this.receive(e))
+    bus.subscribe('CRD_ADDED', (e) => this.receive(e))
   }
 
   getControllers(): string[] {
