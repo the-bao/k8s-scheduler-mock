@@ -4,6 +4,7 @@ import type { MessageBus } from '../bus/message-bus'
 
 export abstract class Actor<S extends string, _E extends string> {
   readonly id: string
+  protected bus: MessageBus | null = null
   private mailbox: SimEvent[] = []
   private draining = false
   private fsm: FSMachine<S>
@@ -14,12 +15,13 @@ export abstract class Actor<S extends string, _E extends string> {
   }
 
   receive(event: SimEvent): void {
+    console.log(`[${this.id}] receive:`, event.type)
     this.mailbox.push(event)
     if (!this.draining) this.drain()
   }
 
-  subscribe(_bus: MessageBus, _channel: string): void {
-    // Override in subclasses to subscribe to specific event types
+  subscribe(bus: MessageBus, _channel: string): void {
+    this.bus = bus
   }
 
   protected getState(): S {
@@ -38,8 +40,9 @@ export abstract class Actor<S extends string, _E extends string> {
     this.draining = true
     while (this.mailbox.length) {
       const e = this.mailbox.shift()!
-      this.fsm.send(e)
-      this.onTransition(this.fsm.getState(), e)
+      const newState = this.fsm.send(e)
+      console.log(`[${this.id}] drain: ${e.type} -> state: ${newState}`)
+      this.onTransition(newState, e)
     }
     this.draining = false
   }

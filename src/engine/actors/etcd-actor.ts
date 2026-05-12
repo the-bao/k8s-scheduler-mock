@@ -27,6 +27,7 @@ export class EtcdActor extends Actor<'idle' | 'writing' | 'reading', string> {
 
   subscribe(bus: MessageBus, _channel: string): void {
     bus.subscribe('etcd', (e) => this.receive(e))
+    bus.subscribe('WRITE_REQUEST', (e) => this.receive(e))
   }
 
   protected makeCtx(): ActorContext {
